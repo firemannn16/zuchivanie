@@ -3,108 +3,92 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Тренажёр арабских слов — Заучивание + Практика</title>
+<title>Тренажёр арабских слов — исправлено</title>
 <style>
-  :root{--bg:#ffffff;--muted:#666;--accent:#0a6;--danger:#c33}
-  body{font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:#111;margin:18px;max-width:980px}
-  #wrap{margin:0 auto}
-  h1{margin:6px 0 12px}
+  body{font-family:Arial,Helvetica,sans-serif;margin:18px;color:#111;background:#fff;max-width:980px}
   .dua{background:#fff;padding:14px;border-radius:10px;border:1px solid #eee;margin-bottom:12px}
-  .dua .arab{direction:rtl;font-size:2.2rem;font-weight:700;margin:8px 0;text-align:center}
-  .card{background:#fff;padding:18px;border-radius:10px;border:1px solid #eee;margin-bottom:12px}
-  #arabic{direction:rtl;font-size:2.8rem;text-align:center;min-height:3.6em;display:flex;align-items:center;justify-content:center}
+  .arab{direction:rtl;font-size:2.2rem;font-weight:700;margin:8px 0;text-align:center}
+  #arabic{direction:rtl;font-size:2.6rem;text-align:center;min-height:3.6em;padding:14px;border-radius:8px;border:1px solid #eee}
   .controls{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:12px}
-  button{padding:10px 14px;border-radius:8px;border:1px solid #ccc;background:#f6f6f6;cursor:pointer;font-size:1rem}
+  button{padding:10px 12px;border-radius:8px;border:1px solid #ccc;background:#f6f6f6;cursor:pointer}
   .btn-primary{background:#e6fff0;border-color:#b6f0c7}
   .btn-danger{background:#fff0f0;border-color:#f0b6b6}
-  .small{font-size:0.95rem;color:var(--muted);margin-top:8px;text-align:center}
-  .stats{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:10px}
-  .stat{background:#fafafa;padding:8px 12px;border-radius:8px;border:1px solid #f0f0f0}
+  .small{font-size:0.95rem;color:#666;margin-top:8px;text-align:center}
   .hidden{display:none}
-  input[type="text"]{width:100%;padding:10px;font-size:1rem;border-radius:8px;border:1px solid #ddd;box-sizing:border-box}
-  .center{display:flex;justify-content:center;align-items:center;gap:8px}
-  /* modal */
+  input[type="text"]{width:100%;padding:10px;border-radius:8px;border:1px solid #ddd;box-sizing:border-box}
+  .stats{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-bottom:8px}
+  .stat{background:#fafafa;padding:8px 12px;border-radius:8px;border:1px solid #f0f0f0}
   .overlay{position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,0.45);display:flex;align-items:center;justify-content:center;z-index:9999}
-  .modal{background:#fff;padding:18px;border-radius:10px;max-width:720px;width:92%;box-shadow:0 10px 30px rgba(0,0,0,0.2)}
-  .modal .arab{direction:rtl;font-size:1.6rem;font-weight:700;text-align:right}
-  .modal .pair{margin-top:8px;font-size:1.05rem}
-  .modal .close-row{display:flex;justify-content:flex-end;margin-top:12px}
-  @media(max-width:640px){ #arabic{font-size:2.2rem;padding:8px} .modal{padding:12px} }
+  .modal{background:#fff;padding:16px;border-radius:8px;max-width:720px;width:92%;box-shadow:0 8px 30px rgba(0,0,0,0.2)}
+  .modal .pair{margin-top:8px}
 </style>
 </head>
 <body>
-  <div id="wrap">
-    <h1>Тренажёр арабских слов</h1>
+  <h1>Тренажёр арабских слов</h1>
 
-    <!-- Дуа экран -->
-    <div id="screen-dua" class="dua">
-      <div><strong>Перед началом тренировок</strong></div>
-      <div class="arab">رَّبِّ زِدْنِى عِلْمًۭا</div>
-      <div style="text-align:center;margin-top:6px">Перевод: «Господь мой! Приумножь мои знания»</div>
-      <div class="center" style="margin-top:12px">
-        <button id="btn-done-dua">Я сделал дуа</button>
-      </div>
-      <div class="small">Словарь загружается автоматически из <code>words.txt</code>.</div>
+  <div id="screen-dua" class="dua">
+    <div><strong>Перед началом тренировок</strong></div>
+    <div class="arab">رَّبِّ زِدْنِى عِلْمًۭا</div>
+    <div style="text-align:center;margin-top:6px">Перевод: «Господь мой! Приумножь мои знания»</div>
+    <div style="text-align:center;margin-top:12px">
+      <button id="btn-done-dua">Я сделал дуа</button>
     </div>
-
-    <!-- Основной интерфейс -->
-    <div id="screen-main" class="hidden">
-      <div class="stats">
-        <div class="stat">Всего слов: <span id="stat-total">0</span></div>
-        <div class="stat">Окончательно выучено: <span id="stat-mastered">0</span></div>
-        <div class="stat">Осталось в очереди: <span id="stat-remaining">0</span></div>
-        <div class="stat">Фаза: <span id="stat-phase">—</span></div>
-      </div>
-
-      <div class="card">
-        <div id="arabic">…</div>
-
-        <div id="learn-controls" class="controls">
-          <button id="btn-know" class="btn-primary">Знаю</button>
-          <button id="btn-dont">Не знаю</button>
-          <button id="btn-add">Добавить новые слова</button>
-          <button id="btn-reset" class="btn-danger">Сбросить прогресс</button>
-        </div>
-
-        <div id="practice-area" class="hidden" style="margin-top:12px">
-          <div style="margin-bottom:8px"><strong>Практика — введите перевод на русском:</strong></div>
-          <input id="practice-input" type="text" autocomplete="off" placeholder="Введите перевод" />
-          <div class="center" style="margin-top:8px">
-            <button id="practice-submit">Проверить</button>
-            <button id="practice-skip">Пропустить</button>
-          </div>
-        </div>
-
-        <div id="message" class="small" style="margin-top:12px"></div>
-      </div>
-    </div>
-
-    <!-- Modal root -->
-    <div id="modal-root"></div>
+    <div class="small">Словарь загружается автоматически из <code>words.txt</code>.</div>
   </div>
 
+  <div id="screen-main" class="hidden">
+    <div class="stats">
+      <div class="stat">Всего: <span id="stat-total">0</span></div>
+      <div class="stat">Оконч. выучено: <span id="stat-mastered">0</span></div>
+      <div class="stat">В очереди: <span id="stat-remaining">0</span></div>
+      <div class="stat">Фаза: <span id="stat-phase">—</span></div>
+    </div>
+
+    <div id="arabic">…</div>
+
+    <div id="learn-controls" class="controls">
+      <button id="btn-know" class="btn-primary">Знаю</button>
+      <button id="btn-dont">Не знаю</button>
+      <button id="btn-add">Добавить новые слова</button>
+      <button id="btn-reset" class="btn-danger">Сбросить прогресс</button>
+    </div>
+
+    <div id="practice-area" class="hidden" style="margin-top:12px">
+      <div style="margin-bottom:8px"><strong>Практика — введите перевод на русском:</strong></div>
+      <input id="practice-input" type="text" autocomplete="off" placeholder="Введите перевод" />
+      <div class="controls" style="margin-top:8px">
+        <button id="practice-submit">Проверить</button>
+        <button id="practice-skip">Пропустить</button>
+      </div>
+    </div>
+
+    <div id="message" class="small" style="margin-top:12px"></div>
+  </div>
+
+  <div id="modal-root"></div>
+
 <script>
-/* ========== Настройки ========== */
+/* ---------- Конфиг ---------- */
 const BATCH_SIZE = 10;
 const SHOW_ANSWER_MS = 15000;
 const STORAGE_KEY = (() => {
-  const path = (location.pathname||'/').replace(/^\/|\/$/g,'_').replace(/\//g,'_') || 'root';
-  return `arabic_trainer_state_v1_${encodeURIComponent(location.hostname + '_' + path)}`;
+  const p = (location.pathname||'/').replace(/^\/|\/$/g,'').replace(/\//g,'_') || 'root';
+  return `arabic_trainer_state_v1_${encodeURIComponent(location.hostname + '_' + p)}`;
 })();
 
-/* ========== Состояние ========= */
-let allWords = [];
-let orderQueue = [];
-let masteredFinal = [];    // окончательно выученные
-let practiceHistory = [];  // ранее заученные, которые должны входить в практики
-let roundMastered = [];    // выученные в текущем раунде
-let practiceAccum = [];    // пометки "Знаю" (накапливаются для практики)
+/* ---------- Состояние ---------- */
+let allWords = [];           // {rawLine, rus[], arabParts[], arabFull}
+let orderQueue = [];         // remaining (не показанные)
+let masteredFinal = [];     // окончательно выученные
+let practiceHistory = [];   // ранее заученные для включения в практики
+let roundMastered = [];     // в текущем раунде
+let practiceAccum = [];     // пометки "Знаю" (накапливаются)
 let practiceOrder = [];
 let phase = 'learn';
 let currentRaw = null;
 let modalTimer = null;
 
-/* ========== DOM ========= */
+/* ---------- DOM ---------- */
 const screenDua = document.getElementById('screen-dua');
 const screenMain = document.getElementById('screen-main');
 const btnDoneDua = document.getElementById('btn-done-dua');
@@ -129,49 +113,38 @@ const practiceSkip = document.getElementById('practice-skip');
 
 const modalRoot = document.getElementById('modal-root');
 
-/* ========== Утилиты парсинга ========= */
-function normalizeLine(l){
-  if(!l) return '';
-  return l.replace(/^\uFEFF/,'').replace(/[\u2010\u2011\u2012\u2013\u2014\u2015–—−]/g,'-').replace(/\s+/g,' ').trim();
-}
+/* ---------- Вспомогательные функции ---------- */
+function normalizeLine(l){ if(!l) return ''; return l.replace(/^\uFEFF/,'').replace(/[\u2010\u2011\u2012\u2013\u2014\u2015–—−]/g,'-').replace(/\s+/g,' ').trim(); }
 function parseLine(raw){
   raw = normalizeLine(raw);
   const parts = raw.split(/[-–—]/).map(p=>p.trim()).filter(Boolean);
   const left = parts.length ? parts[0] : '';
-  const rightParts = parts.slice(1);
+  const right = parts.slice(1);
   const rus = left ? left.split(',').map(s=>s.trim()).filter(Boolean) : [];
-  const arabParts = rightParts.length ? rightParts.join(' - ').split(/\s*-\s*/).map(s=>s.trim()).filter(Boolean) : [];
-  return { rawLine: raw, rus, arabParts, arabFull: rightParts.join(' - ') || '' };
+  const arabParts = right.length ? right.join(' - ').split(/\s*-\s*/).map(s=>s.trim()).filter(Boolean) : [];
+  return { rawLine: raw, rus, arabParts, arabFull: right.join(' - ') || '' };
 }
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } }
-function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g,c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]); }
 
-/* ========== Сохранение/восстановление ========= */
+/* ---------- Сохранение / восстановление ---------- */
 function saveState(){
   try{
-    const st = {
-      allRaw: allWords.map(w=>w.rawLine),
-      orderQueue: orderQueue.slice(),
-      masteredFinal: masteredFinal.slice(),
-      practiceHistory: practiceHistory.slice(),
-      roundMastered: roundMastered.slice(),
-      practiceAccum: practiceAccum.slice(),
-      practiceOrder: practiceOrder.slice(),
-      phase, currentRaw
-    };
+    const st = { allRaw: allWords.map(w=>w.rawLine), orderQueue: orderQueue.slice(), masteredFinal: masteredFinal.slice(), practiceHistory: practiceHistory.slice(), roundMastered: roundMastered.slice(), practiceAccum: practiceAccum.slice(), practiceOrder: practiceOrder.slice(), phase, currentRaw };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(st));
-  }catch(e){ console.warn('saveState', e); }
+  }catch(e){ console.warn('save failed', e); }
 }
-function loadState(){ try{ const raw=localStorage.getItem(STORAGE_KEY); return raw?JSON.parse(raw):null; }catch(e){return null;} }
+function loadState(){ try{ const raw = localStorage.getItem(STORAGE_KEY); return raw?JSON.parse(raw):null; }catch(e){return null;} }
 function clearState(){ try{ localStorage.removeItem(STORAGE_KEY);}catch(e){} }
 
-/* ========== Загрузка words.txt (robust) ========= */
+/* ---------- robust fetch words ---------- */
 async function robustFetchWords(){
   const tries = ['words.txt','./words.txt'];
   try{ tries.push(location.pathname.replace(/\/[^/]*$/,'/') + 'words.txt'); }catch(e){}
   for(const p of tries){
     try{ const r = await fetch(p); if(r.ok) return await r.text(); }catch(e){}
   }
+  // fallback to raw.githubusercontent if possible
   try{
     const user = location.hostname.split('.')[0] || '';
     const repo = (location.pathname.split('/').filter(Boolean)[0] || '');
@@ -184,7 +157,7 @@ async function robustFetchWords(){
   throw new Error('Не удалось загрузить words.txt');
 }
 
-/* ========== Инициализация словаря и восстановление ========= */
+/* ---------- Инициализация словаря ---------- */
 async function initDictionary(){
   const txt = await robustFetchWords();
   const lines = txt.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
@@ -195,7 +168,7 @@ async function initDictionary(){
     const serverSet = new Set(allWords.map(w=>w.rawLine));
     orderQueue = (Array.isArray(st.orderQueue) ? st.orderQueue.filter(r=>serverSet.has(r)) : []);
     const oldSnap = new Set(st.allRaw || []);
-    const newOnServer = allWords.map(w=>w.rawLine).filter(r => !oldSnap.has(r));
+    const newOnServer = allWords.map(w=>w.rawLine).filter(r=>!oldSnap.has(r));
     for(const r of newOnServer) if(!orderQueue.includes(r)) orderQueue.push(r);
     masteredFinal = (Array.isArray(st.masteredFinal) ? st.masteredFinal.filter(r=>serverSet.has(r)) : []);
     practiceHistory = (Array.isArray(st.practiceHistory) ? st.practiceHistory.filter(r=>serverSet.has(r)) : []);
@@ -205,7 +178,7 @@ async function initDictionary(){
     phase = st.phase || 'learn';
     currentRaw = (st.currentRaw && serverSet.has(st.currentRaw)) ? st.currentRaw : null;
     if(!orderQueue.length){
-      orderQueue = allWords.map(w=>w.rawLine).filter(r => !masteredFinal.includes(r));
+      orderQueue = allWords.map(w=>w.rawLine).filter(r=>!masteredFinal.includes(r));
       shuffle(orderQueue);
     }
   } else {
@@ -219,16 +192,16 @@ async function initDictionary(){
   saveState();
 }
 
-/* ========== UI helpers ========= */
+/* ---------- UI helpers ---------- */
 function updateStats(){
   statTotal.textContent = allWords.length;
   statMastered.textContent = masteredFinal.length;
   statRemaining.textContent = orderQueue.length;
-  statPhase.textContent = phase === 'learn' ? 'Заучивание' : (phase === 'practice' ? 'Практика' : 'Готово');
+  statPhase.textContent = phase === 'learn' ? 'Заучивание' : (phase === 'practice' ? 'Практика' : '—');
 }
 function showMessage(t){ messageDiv.textContent = t || ''; }
 
-/* ========== Заучивание: показать следующее слово ========= */
+/* ---------- Заучивание ---------- */
 function showNextLearn(){
   phase = 'learn';
   learnControls.classList.remove('hidden');
@@ -238,29 +211,21 @@ function showNextLearn(){
     if(roundMastered.length >= BATCH_SIZE){
       startPractice();
       return;
-    } else {
-      if(practiceAccum.length === 0){
-        arabicDiv.textContent = 'Слов в очереди нет.';
-        showMessage('Очередь пуста — нажмите "Добавить новые слова" или сбросьте прогресс.');
-        saveState();
-        return;
-      } else {
-        arabicDiv.textContent = 'Осталось немного слов — продолжайте заучивание.';
-        showMessage('Чтобы начать практику, доведите раунд до ' + BATCH_SIZE + ' выученных.');
-        saveState();
-        return;
-      }
     }
+    arabicDiv.textContent = 'Очередь пуста.';
+    showMessage('Добавьте слова или сбросьте прогресс.');
+    saveState();
+    return;
   }
   currentRaw = orderQueue.shift();
-  const obj = allWords.find(w=>w.rawLine===currentRaw) || { rawLine: currentRaw, rus:[], arabParts:[], arabFull:'' };
+  const obj = allWords.find(w=>w.rawLine===currentRaw) || {rawLine:currentRaw, rus:[], arabParts:[], arabFull:''};
   arabicDiv.textContent = obj.arabFull || (obj.arabParts||[]).join(' - ') || '[нет арабского]';
-  showMessage('Нажмите "Знаю" или "Не знаю".');
+  showMessage('Нажмите «Знаю» или «Не знаю».');
   saveState();
   updateStats();
 }
 
-/* ========== Кнопки заучивания ========= */
+/* ---------- Кнопки заучивания ---------- */
 btnKnow.addEventListener('click', () => {
   if(!currentRaw) return;
   if(!roundMastered.includes(currentRaw)) roundMastered.push(currentRaw);
@@ -268,103 +233,79 @@ btnKnow.addEventListener('click', () => {
   currentRaw = null;
   saveState();
   updateStats();
-  if(roundMastered.length >= BATCH_SIZE){
-    startPractice();
-  } else {
-    showNextLearn();
-  }
+  if(roundMastered.length >= BATCH_SIZE) startPractice(); else showNextLearn();
 });
 
 btnDont.addEventListener('click', () => {
   if(!currentRaw) return;
   const obj = allWords.find(w=>w.rawLine===currentRaw) || parseLine(currentRaw);
   showDontKnowModal(obj);
-  // вернуть в очередь обучения (в конец) — так, как раньше
-  if(!orderQueue.includes(currentRaw)) orderQueue.push(currentRaw);
+  // возвращаем в очередь (в конец), чтобы не терять порядок — это безопаснее
+  orderQueue.push(currentRaw);
   currentRaw = null;
   saveState();
   updateStats();
 });
 
-/* ========== Модалка "Не знаю" — авто 15с ========= */
+/* ---------- Modal: "Не знаю" (авто 15с) ---------- */
 function showDontKnowModal(obj){
   closeModal();
   const overlay = document.createElement('div'); overlay.className='overlay';
   const modal = document.createElement('div'); modal.className='modal';
-  let pairsHtml = '';
-  const arParts = obj.arabParts && obj.arabParts.length ? obj.arabParts : (obj.arabFull ? obj.arabFull.split(/\s*-\s*/).map(s=>s.trim()) : []);
-  if(obj.rus.length && arParts.length && obj.rus.length === arParts.length){
-    for(let i=0;i<obj.rus.length;i++){
-      pairsHtml += `<div class="pair">${escapeHtml(obj.rus[i])} — <span style="direction:rtl">${escapeHtml(arParts[i])}</span></div>`;
-    }
+  let html = '';
+  const ar = obj.arabParts && obj.arabParts.length ? obj.arabParts : (obj.arabFull?obj.arabFull.split(/\s*-\s*/).map(s=>s.trim()):[]);
+  if(obj.rus.length && ar.length && obj.rus.length === ar.length){
+    for(let i=0;i<obj.rus.length;i++) html += `<div class="pair">${escapeHtml(obj.rus[i])} — <span style="direction:rtl">${escapeHtml(ar[i])}</span></div>`;
   } else {
-    const arabAll = arParts.join(' - ');
-    for(const r of obj.rus.length?obj.rus:['']){
-      pairsHtml += `<div class="pair">${escapeHtml(r)} — <span style="direction:rtl">${escapeHtml(arabAll)}</span></div>`;
-    }
+    const arabAll = ar.join(' - ');
+    for(const r of obj.rus.length?obj.rus:['']) html += `<div class="pair">${escapeHtml(r)} — <span style="direction:rtl">${escapeHtml(arabAll)}</span></div>`;
   }
-  modal.innerHTML = `<div><strong>Перевод (показывается 15 с)</strong></div><div class="arab" style="margin-top:8px">${escapeHtml((arParts.join(' - ')) || obj.arabFull || '')}</div><div style="margin-top:8px">${pairsHtml}</div>`;
+  modal.innerHTML = `<div><strong>Перевод (показывается 15 с)</strong></div><div style="margin-top:8px">${html}</div>`;
   overlay.appendChild(modal);
   modalRoot.appendChild(overlay);
   modalTimer = setTimeout(()=>{ closeModal(); showNextLearn(); }, SHOW_ANSWER_MS);
 }
 
-/* ========== Модалка практики — при ошибке (кнопка закрыть и Esc работают) ========= */
+/* ---------- Modal: практика (при ошибке) ---------- */
 function showPracticeAnswerModal(obj){
   closeModal();
   const overlay = document.createElement('div'); overlay.className='overlay';
   const modal = document.createElement('div'); modal.className='modal';
-  let pairsHtml = '';
-  const arParts = obj.arabParts && obj.arabParts.length ? obj.arabParts : (obj.arabFull ? obj.arabFull.split(/\s*-\s*/).map(s=>s.trim()) : []);
-  if(obj.rus.length && arParts.length && obj.rus.length === arParts.length){
-    for(let i=0;i<obj.rus.length;i++){
-      pairsHtml += `<div class="pair">${escapeHtml(obj.rus[i])} — <span style="direction:rtl">${escapeHtml(arParts[i])}</span></div>`;
-    }
+  let html = '';
+  const ar = obj.arabParts && obj.arabParts.length ? obj.arabParts : (obj.arabFull?obj.arabFull.split(/\s*-\s*/).map(s=>s.trim()):[]);
+  if(obj.rus.length && ar.length && obj.rus.length === ar.length){
+    for(let i=0;i<obj.rus.length;i++) html += `<div class="pair">${escapeHtml(obj.rus[i])} — <span style="direction:rtl">${escapeHtml(ar[i])}</span></div>`;
   } else {
-    const arabAll = arParts.join(' - ');
-    for(const r of obj.rus.length?obj.rus:['']){
-      pairsHtml += `<div class="pair">${escapeHtml(r)} — <span style="direction:rtl">${escapeHtml(arabAll)}</span></div>`;
-    }
+    const arabAll = ar.join(' - ');
+    for(const r of obj.rus.length?obj.rus:['']) html += `<div class="pair">${escapeHtml(r)} — <span style="direction:rtl">${escapeHtml(arabAll)}</span></div>`;
   }
-  modal.innerHTML = `<div><strong>Правильный ответ</strong></div><div style="margin-top:8px">${pairsHtml}</div><div class="close-row"><button id="modal-close" class="button">Закрыть (Esc)</button></div>`;
+  modal.innerHTML = `<div><strong>Правильный ответ</strong></div><div style="margin-top:8px">${html}</div><div style="text-align:right;margin-top:12px"><button id="modal-close" class="button">Закрыть (Esc)</button></div>`;
   overlay.appendChild(modal);
   modalRoot.appendChild(overlay);
 
-  function onClose(){
-    cleanup();
-    // следующий шаг — продолжить практику
-    showNextPractice();
-  }
-  function cleanup(){
-    if(modalTimer){ clearTimeout(modalTimer); modalTimer=null; }
-    document.removeEventListener('keydown', onKey);
-    overlay.removeEventListener('click', onOverlayClick);
-    const btn = document.getElementById('modal-close'); if(btn) btn.removeEventListener('click', onClose);
-    if(overlay.parentNode) overlay.parentNode.removeChild(overlay);
-    // восстановим фокус в поле практики
-    setTimeout(()=>{ try{ practiceInput.focus(); }catch(e){} }, 50);
-  }
-  function onKey(e){ if(e.key==='Escape'){ onClose(); } }
-  function onOverlayClick(e){ if(e.target === overlay){ onClose(); } }
+  function cleanup(){ if(modalTimer){ clearTimeout(modalTimer); modalTimer=null; } document.removeEventListener('keydown', onKey); overlay.removeEventListener('click', onOverlay); const b=document.getElementById('modal-close'); if(b) b.removeEventListener('click', onBtn); if(overlay.parentNode) overlay.parentNode.removeChild(overlay); practiceInput.focus(); }
+  function onKey(e){ if(e.key==='Escape') { onBtn(); } }
+  function onOverlay(e){ if(e.target===overlay) onBtn(); }
+  function onBtn(){ cleanup(); showNextPractice(); }
 
   document.addEventListener('keydown', onKey);
-  overlay.addEventListener('click', onOverlayClick);
-  const btn = document.getElementById('modal-close'); if(btn) btn.addEventListener('click', onClose);
+  overlay.addEventListener('click', onOverlay);
+  const btn = document.getElementById('modal-close'); if(btn) btn.addEventListener('click', onBtn);
 
-  modalTimer = setTimeout(()=>{ onClose(); }, SHOW_ANSWER_MS);
+  modalTimer = setTimeout(()=>{ onBtn(); }, SHOW_ANSWER_MS);
 }
 
-/* ========== Практика: старт и порядок (history first, then new) ========= */
+/* ---------- Практика: старт, порядок (history first) ---------- */
 function startPractice(){
   phase = 'practice';
   learnControls.classList.add('hidden');
   practiceArea.classList.remove('hidden');
 
-  // Build practiceOrder: history first (already learned before), then current accumulation
+  // Собираем очередь: сначала practiceHistory (старые), затем practiceAccum (новые)
   const set = new Set();
   practiceOrder = [];
-  for(const r of practiceHistory){ if(!set.has(r)) { practiceOrder.push(r); set.add(r); } }
-  for(const r of practiceAccum){ if(!set.has(r)) { practiceOrder.push(r); set.add(r); } }
+  for(const r of practiceHistory) if(!set.has(r)){ practiceOrder.push(r); set.add(r); }
+  for(const r of practiceAccum) if(!set.has(r)){ practiceOrder.push(r); set.add(r); }
   shuffle(practiceOrder);
 
   roundMastered = [];
@@ -374,7 +315,7 @@ function startPractice(){
 }
 
 function showNextPractice(){
-  if(!practiceOrder || practiceOrder.length === 0){
+  if(!practiceOrder || practiceOrder.length===0){
     phase = 'learn';
     learnControls.classList.remove('hidden');
     practiceArea.classList.add('hidden');
@@ -386,14 +327,13 @@ function showNextPractice(){
   currentRaw = practiceOrder.shift();
   const obj = allWords.find(w=>w.rawLine===currentRaw) || parseLine(currentRaw);
   arabicDiv.textContent = obj.arabFull || (obj.arabParts||[]).join(' - ') || '[нет арабского]';
-  practiceArea.classList.remove('hidden');
   practiceInput.value = '';
   practiceInput.focus();
   updateStats();
 }
 
-/* ======== Обработчики практики: Enter + button, защитный дизейбл чтобы избежать гонок ======= */
-function enablePracticeControls(){ practiceSubmit.disabled = false; practiceSkip.disabled = false; practiceInput.disabled = false; }
+/* ---------- Обработчики практики (Enter + кнопка) ---------- */
+function enablePracticeControls(){ practiceSubmit.disabled = false; practiceSkip.disabled = false; practiceInput.disabled = false; practiceInput.focus(); }
 function disablePracticeControls(){ practiceSubmit.disabled = true; practiceSkip.disabled = true; practiceInput.disabled = true; }
 
 practiceSubmit.addEventListener('click', async () => {
@@ -403,56 +343,40 @@ practiceSubmit.addEventListener('click', async () => {
     const val = (practiceInput.value||'').trim().toLowerCase();
     if(!val){ enablePracticeControls(); return; }
     const obj = allWords.find(w=>w.rawLine===currentRaw) || parseLine(currentRaw);
-    const ok = (obj.rus||[]).some(r => r.trim().toLowerCase() === val || r.trim().toLowerCase() === val.replace(/ё/g,'е'));
+    const ok = (obj.rus||[]).some(r=>r.trim().toLowerCase()===val || r.trim().toLowerCase()===val.replace(/ё/g,'е'));
     if(ok){
       if(!masteredFinal.includes(currentRaw)) masteredFinal.push(currentRaw);
       if(!practiceHistory.includes(currentRaw)) practiceHistory.push(currentRaw);
       practiceAccum = practiceAccum.filter(r=>r!==currentRaw);
-      showMessage('Верно — слово отмечено как окончательно выученное.');
+      showMessage('Верно — отмечено как окончательно выученное.');
       saveState();
       currentRaw = null;
       enablePracticeControls();
       showNextPractice();
     } else {
-      // при ошибке — добавляем в начало очереди обучения и удаляем из practiceAccum
+      // при ошибке — поместить в начало очереди обучения и удалить из practiceAccum
       if(!orderQueue.includes(currentRaw)) orderQueue.unshift(currentRaw);
       practiceAccum = practiceAccum.filter(r=>r!==currentRaw);
       saveState();
       updateStats();
-      // показать правильный ответ (модалка с кнопкой закрыть и Esc)
-      const objCopy = obj;
-      // modal закроет и продолжит практику
-      showPracticeAnswerModal(objCopy);
+      // показать модал с ответом; после закрытия идёт следующий элемент практики
+      showPracticeAnswerModal(obj);
       currentRaw = null;
       enablePracticeControls();
     }
   }catch(e){ console.error(e); enablePracticeControls(); }
 });
 
-practiceInput.addEventListener('keydown', (e) => {
-  if(e.key === 'Enter'){
-    e.preventDefault();
-    practiceSubmit.click();
-  }
-});
+practiceInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); practiceSubmit.click(); } });
+practiceSkip.addEventListener('click', ()=>{ if(!currentRaw) return; if(!orderQueue.includes(currentRaw)) orderQueue.push(currentRaw); practiceAccum=practiceAccum.filter(r=>r!==currentRaw); saveState(); currentRaw=null; showNextPractice(); });
 
-practiceSkip.addEventListener('click', () => {
-  if(!currentRaw) return;
-  if(!orderQueue.includes(currentRaw)) orderQueue.push(currentRaw);
-  practiceAccum = practiceAccum.filter(r=>r!==currentRaw);
-  saveState();
-  updateStats();
-  currentRaw = null;
-  showNextPractice();
-});
-
-/* ========== Добавить новые слова ========= */
+/* ---------- Добавить новые слова ---------- */
 btnAdd.addEventListener('click', async () => {
   try{
     const txt = await robustFetchWords();
     const lines = txt.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
     const existing = new Set(allWords.map(w=>w.rawLine));
-    let added = 0;
+    let added=0;
     for(const l of lines){
       const n = normalizeLine(l);
       if(!existing.has(n)){
@@ -464,60 +388,40 @@ btnAdd.addEventListener('click', async () => {
       }
     }
     if(added) shuffle(orderQueue);
-    saveState();
-    updateStats();
+    saveState(); updateStats();
     alert('Добавлено новых слов: ' + added);
-  }catch(e){
-    alert('Не удалось добавить слова: ' + e.message);
-  }
+  }catch(e){ alert('Ошибка: '+e.message); }
 });
 
-/* ========== Сброс прогресса (сразу) ========= */
-btnReset.addEventListener('click', () => {
+/* ---------- Сброс прогресса (без confirm по твоему требованию) ---------- */
+btnReset.addEventListener('click', ()=>{
   clearState();
-  orderQueue = allWords.map(w=>w.rawLine);
-  shuffle(orderQueue);
+  orderQueue = allWords.map(w=>w.rawLine); shuffle(orderQueue);
   masteredFinal = []; practiceHistory = []; roundMastered = []; practiceAccum = []; practiceOrder = []; phase='learn'; currentRaw=null;
-  screenMain.classList.add('hidden');
-  screenDua.classList.remove('hidden');
+  screenMain.classList.add('hidden'); screenDua.classList.remove('hidden');
   updateStats();
 });
 
-/* ========== "Я сделал дуа" ========= */
-btnDoneDua.addEventListener('click', async () => {
-  screenDua.classList.add('hidden');
-  screenMain.classList.remove('hidden');
+/* ---------- "Я сделал дуа" ---------- */
+btnDoneDua.addEventListener('click', async ()=>{
+  screenDua.classList.add('hidden'); screenMain.classList.remove('hidden');
   if(!allWords.length){
-    try{ await initDictionary(); }catch(e){ alert('Ошибка загрузки слов: ' + e.message); return; }
+    try{ await initDictionary(); }catch(e){ alert('Ошибка загрузки слов: '+e.message); return; }
   }
-  if(phase === 'practice' && practiceOrder.length){
-    learnControls.classList.add('hidden');
-    practiceArea.classList.remove('hidden');
-    showNextPractice();
-  } else {
-    practiceArea.classList.add('hidden');
-    learnControls.classList.remove('hidden');
-    if(currentRaw){
-      const o = allWords.find(w=>w.rawLine===currentRaw);
-      arabicDiv.textContent = (o && (o.arabFull || o.arabParts.join(' - '))) || currentRaw;
-    } else showNextLearn();
-  }
+  if(phase==='practice' && practiceOrder.length){ learnControls.classList.add('hidden'); practiceArea.classList.remove('hidden'); showNextPractice(); }
+  else { practiceArea.classList.add('hidden'); learnControls.classList.remove('hidden'); if(currentRaw){ const o = allWords.find(w=>w.rawLine===currentRaw); arabicDiv.textContent = (o && (o.arabFull || o.arabParts.join(' - ')))||currentRaw; } else showNextLearn(); }
 });
 
-/* ========== Инициализация bootstrap ========= */
+/* ---------- init ---------- */
 (async function bootstrap(){
-  try{
-    await initDictionary();
-    screenDua.classList.remove('hidden'); screenMain.classList.add('hidden');
-  }catch(e){
-    console.error(e);
-    alert('Ошибка инициализации: ' + e.message);
-  }
+  try{ await initDictionary(); screenDua.classList.remove('hidden'); screenMain.classList.add('hidden'); }catch(e){ console.error(e); alert('Ошибка инициализации: '+e.message); }
 })();
 
-/* ========== Сохранение при уходе ========= */
 window.addEventListener('beforeunload', saveState);
 window.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') saveState(); });
+
+/* ---------- Modal helper ---------- */
+function closeModal(){ modalRoot.innerHTML=''; if(modalTimer){ clearTimeout(modalTimer); modalTimer=null; } }
 
 </script>
 </body>
