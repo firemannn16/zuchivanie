@@ -3,13 +3,15 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Тренажёр арабских слов — с исправлениями</title>
+<title>Тренажёр арабских слов — обновлённый</title>
 <style>
   body{font-family:Arial,Helvetica,sans-serif;margin:18px;color:#111;background:#fff;max-width:980px}
   .dua{background:#fff;padding:14px;border-radius:10px;border:1px solid #eee;margin-bottom:12px}
   .arab{direction:rtl;font-size:2.2rem;font-weight:700;margin:8px 0;text-align:center}
   #arabic{direction:rtl;font-size:2.6rem;text-align:center;min-height:3.6em;padding:14px;border-radius:8px;border:1px solid #eee}
   .controls{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:12px}
+  .controls-vertical{display:block;text-align:center;margin-top:10px}
+  .controls-vertical .controls{justify-content:center}
   button{padding:10px 12px;border-radius:8px;border:1px solid #ccc;background:#f6f6f6;cursor:pointer}
   .btn-primary{background:#e6fff0;border-color:#b6f0c7}
   .btn-danger{background:#fff0f0;border-color:#f0b6b6}
@@ -33,7 +35,6 @@
     <div style="text-align:center;margin-top:12px">
       <button id="btn-done-dua">Я сделал дуа</button>
     </div>
-    <div class="small">Словарь загружается автоматически из <code>words.txt</code>.</div>
   </div>
 
   <div id="screen-main" class="hidden">
@@ -46,11 +47,18 @@
 
     <div id="arabic">…</div>
 
+    <!-- первая строка: Знаю / Не знаю -->
     <div id="learn-controls" class="controls">
       <button id="btn-know" class="btn-primary">Знаю</button>
       <button id="btn-dont">Не знаю</button>
-      <button id="btn-add">Добавить новые слова</button>
-      <button id="btn-reset" class="btn-danger">Сбросить прогресс</button>
+    </div>
+
+    <!-- вторая строка: Сброс и Добавить -->
+    <div class="controls-vertical">
+      <div class="controls">
+        <button id="btn-reset" class="btn-danger">Сбросить прогресс</button>
+        <button id="btn-add">Добавить новые слова</button>
+      </div>
     </div>
 
     <div id="practice-area" class="hidden" style="margin-top:12px">
@@ -133,20 +141,16 @@ function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;'
 
 /* ---------- last-letter mistake detector ---------- */
 function isLastCharMistake(userRaw, correctRaw){
-  // both normalized (lowercase, ё->е already handled by normalizeRu)
   const u = normalizeRu(userRaw||'');
   const c = normalizeRu(correctRaw||'');
   if(!u || !c) return false;
-  // exact check already handled elsewhere
-  // Case 1: same length, all equal except last
+  if(u === c) return false;
   if(u.length === c.length){
     if(u.slice(0, -1) === c.slice(0, -1) && u[u.length-1] !== c[c.length-1]) return true;
   }
-  // Case 2: user omitted last char (user shorter by exactly 1 and matches prefix)
   if(u.length === c.length - 1){
     if(u === c.slice(0, -1)) return true;
   }
-  // Case 3: user has extra char at end but prefix matches (user longer by 1)
   if(u.length === c.length + 1){
     if(u.slice(0, -1) === c) return true;
   }
@@ -375,12 +379,10 @@ practiceSubmit.addEventListener('click', async () => {
     const val = (practiceInput.value||'').trim();
     if(!val){ enablePracticeControls(); return; }
     const obj = allWords.find(w=>w.rawLine===currentRaw) || parseLine(currentRaw);
-    // exact normalized match
     const userNorm = normalizeRu(val);
     const exact = (obj.rus||[]).some(r => normalizeRu(r) === userNorm);
     const almost = !exact && (obj.rus||[]).some(r => isLastCharMistake(userNorm, normalizeRu(r)));
     if(exact){
-      // обычная корректная обработка
       if(!masteredFinal.includes(currentRaw)) masteredFinal.push(currentRaw);
       if(!practiceHistory.includes(currentRaw)) practiceHistory.push(currentRaw);
       practiceAccum = practiceAccum.filter(r=>r!==currentRaw);
@@ -390,19 +392,19 @@ practiceSubmit.addEventListener('click', async () => {
       enablePracticeControls();
       showNextPractice();
     } else if(almost){
-      // засчитываем как верно, но показываем модалку "Мелкая ошибка" с полным ответом
+      // частичная ошибка: засчитать как верно
       if(!masteredFinal.includes(currentRaw)) masteredFinal.push(currentRaw);
       if(!practiceHistory.includes(currentRaw)) practiceHistory.push(currentRaw);
       practiceAccum = practiceAccum.filter(r=>r!==currentRaw);
       saveState();
-      // показать модалку с заголовком "Мелкая ошибка — засчитано"
+      // показать модалку "Мелкая ошибка — засчитано"
       showPracticeAnswerModal(obj, 'Мелкая ошибка — засчитано', true);
       currentRaw = null;
       enablePracticeControls();
     } else {
-      // ошибка: вернуть слово в начало очереди обучения
+      // полная ошибка: вернуть в начало очереди обучения
       if(!orderQueue.includes(currentRaw)) orderQueue.unshift(currentRaw);
-      // если слово было в masteredFinal (ранее считалось выученным) — удалить
+      // если слово было в masteredFinal — удалить (пользователь ошибся по уже выученному)
       const wasMastered = masteredFinal.includes(currentRaw);
       if(wasMastered){
         masteredFinal = masteredFinal.filter(r=>r!==currentRaw);
@@ -411,7 +413,6 @@ practiceSubmit.addEventListener('click', async () => {
       practiceAccum = practiceAccum.filter(r=>r!==currentRaw);
       saveState();
       updateStats();
-      // показать правильный ответ (модалка), после закрытия продолжаем практику
       showPracticeAnswerModal(obj, 'Неправильно', true);
       currentRaw = null;
       enablePracticeControls();
@@ -445,7 +446,7 @@ btnAdd.addEventListener('click', async () => {
   }catch(e){ alert('Ошибка: '+e.message); }
 });
 
-/* ---------- Сброс прогресса (без confirm) ---------- */
+/* ---------- Сброс прогресса ---------- */
 btnReset.addEventListener('click', ()=>{
   clearState();
   orderQueue = allWords.map(w=>w.rawLine); shuffle(orderQueue);
