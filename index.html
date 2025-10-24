@@ -351,16 +351,27 @@ function startPractice(){
 }
 
 function showNextPractice(){
-  if(!practiceOrder || practiceOrder.length===0){
-    phase = 'learn';
-    learnControls.classList.remove('hidden');
-    practiceArea.classList.add('hidden');
-    saveState();
-    updateStats();
-    showNextLearn();
-    return;
+  while (true) {
+    if (!practiceOrder || practiceOrder.length === 0) {
+      phase = 'learn';
+      learnControls.classList.remove('hidden');
+      practiceArea.classList.add('hidden');
+      saveState();
+      updateStats();
+      showNextLearn();
+      return;
+    }
+    currentRaw = practiceOrder.shift();
+    if (masteredFinal.includes(currentRaw)) {
+      orderQueue.push(currentRaw);
+      masteredFinal = masteredFinal.filter(r => r !== currentRaw);
+      practiceHistory = practiceHistory.filter(r => r !== currentRaw);
+      saveState();
+      updateStats();
+    } else {
+      break;
+    }
   }
-  currentRaw = practiceOrder.shift();
   const obj = allWords.find(w=>w.rawLine===currentRaw) || parseLine(currentRaw);
   arabicDiv.textContent = obj.arabFull || (obj.arabParts||[]).join(' - ') || '[нет арабского]';
   practiceInput.value = '';
