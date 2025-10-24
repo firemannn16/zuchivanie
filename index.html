@@ -263,6 +263,7 @@ function showNextLearn(){
 }
 
 /* ---------- Кнопки заучивания ---------- */
+// Изменённая логика: старт практики только при ПЕРЕХОДЕ через порог (=== BATCH_SIZE)
 btnKnow.addEventListener('click', () => {
   if(!currentRaw) return;
   if(!roundMastered.includes(currentRaw)) roundMastered.push(currentRaw);
@@ -270,7 +271,14 @@ btnKnow.addEventListener('click', () => {
   currentRaw = null;
   saveState();
   updateStats();
-  if(roundMastered.length >= BATCH_SIZE) startPractice(); else showNextLearn();
+
+  // запуск практики ТОЛЬКО когда мы ТОЛЬКО-ТОЛЬКО достигли порога,
+  // чтобы не стартовать заново если roundMastered уже был >= BATCH_SIZE из старых данных
+  if (roundMastered.length === BATCH_SIZE) {
+    startPractice();
+  } else {
+    showNextLearn();
+  }
 });
 
 btnDont.addEventListener('click', () => {
@@ -338,17 +346,27 @@ function startPractice(){
   practiceArea.classList.remove('hidden');
 
   // Окончательно выученные первыми, затем новые слова (из orderQueue), но всего BATCH_SIZE
-  let mastered = masteredFinal.slice(); // первыми, без shuffle
-  let remainingSlots = BATCH_SIZE - mastered.length;
+  // Чтобы не брать слишком много masteredFinal, ограничим их до BATCH_SIZE
+  let mastered = masteredFinal.slice(0, BATCH_SIZE); // первые окончательно выученные (если их много, берём только первые BATCH_SIZE)
+  let remainingSlots = Math.max(0, BATCH_SIZE - mastered.length);
   let newWords = [];
-  if (remainingSlots > 0) {
-    newWords = orderQueue.slice(0, remainingSlots);
-    // Удаляем выбранные слова из orderQueue, чтобы статистика показывала корректное количество оставшихся
-    orderQueue = orderQueue.filter(r => !newWords.includes(r));
-    shuffle(newWords); // перемешиваем новые
+
+  if (remainingSlots > 0 && orderQueue.length > 0) {
+    // Берём кандидатов, исключая те, которые уже отмечены или уже накоплены
+    const exclude = new Set([...mastered, ...roundMastered, ...practiceAccum, ...practiceOrder]);
+    const candidates = orderQueue.filter(r => !exclude.has(r));
+    newWords = candidates.slice(0, remainingSlots);
+
+    // Удаляем из orderQueue ТОЛЬКО те слова, которые мы действительно взяли
+    if(newWords.length) {
+      orderQueue = orderQueue.filter(r => !newWords.includes(r));
+      shuffle(newWords);
+    }
   }
+
   practiceOrder = mastered.concat(newWords);
 
+  // Сбрасываем накопления для раунда (мы уже перенесли их в practiceOrder)
   roundMastered = [];
   saveState();
   updateStats();
