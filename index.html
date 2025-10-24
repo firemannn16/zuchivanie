@@ -350,6 +350,7 @@ function startPractice(){
   showNextPractice();
 }
 
+/* ---------- showNextPractice (существующая логика) ---------- */
 function showNextPractice(){
   if(!practiceOrder || practiceOrder.length===0){
     phase = 'learn';
@@ -421,7 +422,27 @@ practiceSubmit.addEventListener('click', async () => {
 });
 
 practiceInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); practiceSubmit.click(); } });
-practiceSkip.addEventListener('click', ()=>{ if(!currentRaw) return; if(!orderQueue.includes(currentRaw)) orderQueue.push(currentRaw); practiceAccum=practiceAccum.filter(r=>r!==currentRaw); saveState(); currentRaw=null; showNextPractice(); });
+
+/* ---------- ИЗМЕНЁННЫЙ обработчик: practiceSkip ----------
+   Если текущий элемент в masteredFinal, удаляем из masteredFinal и practiceHistory,
+   возвращаем в очередь (orderQueue) и обновляем стейт.
+*/
+practiceSkip.addEventListener('click', ()=>{ 
+  if(!currentRaw) return;
+  // если слово было в окончательно выученных — удалить из них и из истории практики
+  if(masteredFinal.includes(currentRaw)){
+    masteredFinal = masteredFinal.filter(r=>r!==currentRaw);
+    practiceHistory = practiceHistory.filter(r=>r!==currentRaw);
+  }
+  // вернуть в очередь для доработки (здесь добавляем в конец — можно поменять на unshift если хотите начало)
+  if(!orderQueue.includes(currentRaw)) orderQueue.push(currentRaw);
+  // убрать из practiceAccum если там было
+  practiceAccum = practiceAccum.filter(r=>r!==currentRaw);
+  saveState();
+  updateStats();
+  currentRaw = null;
+  showNextPractice();
+});
 
 /* ---------- Добавить новые слова ---------- */
 btnAdd.addEventListener('click', async () => {
