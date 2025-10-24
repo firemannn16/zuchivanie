@@ -1,3 +1,4 @@
+```html
 <!doctype html>
 <html lang="ru">
 <head>
@@ -468,14 +469,52 @@ btnAdd.addEventListener('click', async () => {
   }catch(e){ alert('Ошибка: '+e.message); }
 });
 
-/* ---------- Сброс прогресса ---------- */
-btnReset.addEventListener('click', ()=>{
-  clearState();
-  orderQueue = allWords.map(w=>w.rawLine); shuffle(orderQueue);
-  masteredFinal = []; practiceHistory = []; roundMastered = []; practiceAccum = []; practiceOrder = []; phase='learn'; currentRaw=null;
-  screenMain.classList.add('hidden'); screenDua.classList.remove('hidden');
-  updateStats();
-});
+/* ---------- Сброс прогресса с подтверждением ---------- */
+function showResetModal() {
+  closeModal();
+  const overlay = document.createElement('div'); overlay.className = 'overlay';
+  const modal = document.createElement('div'); modal.className = 'modal';
+  modal.innerHTML = `
+    <div><strong>Подтверждение сброса</strong></div>
+    <div style="margin-top:12px">Вы уверены? Все выученные слова и прогресс будут потеряны. Это действие нельзя отменить.</div>
+    <div style="text-align:right;margin-top:16px">
+      <button id="modal-cancel" style="margin-right:8px">Отмена</button>
+      <button id="modal-confirm" class="btn-danger">Да, сбросить</button>
+    </div>
+  `;
+  overlay.appendChild(modal);
+  modalRoot.appendChild(overlay);
+
+  function cleanup() {
+    document.removeEventListener('keydown', onKey);
+    overlay.removeEventListener('click', onOverlay);
+    const cancelBtn = document.getElementById('modal-cancel');
+    const confirmBtn = document.getElementById('modal-confirm');
+    if (cancelBtn) cancelBtn.removeEventListener('click', onCancel);
+    if (confirmBtn) confirmBtn.removeEventListener('click', onConfirm);
+    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+  }
+  function onKey(e) { if (e.key === 'Escape') onCancel(); }
+  function onOverlay(e) { if (e.target === overlay) onCancel(); }
+  function onCancel() { cleanup(); }
+  function onConfirm() {
+    cleanup();
+    // Выполнить сброс
+    clearState();
+    orderQueue = allWords.map(w=>w.rawLine); shuffle(orderQueue);
+    masteredFinal = []; practiceHistory = []; roundMastered = []; practiceAccum = []; practiceOrder = []; phase='learn'; currentRaw=null;
+    screenMain.classList.add('hidden'); screenDua.classList.remove('hidden');
+    updateStats();
+    showMessage('Прогресс сброшен.');
+  }
+
+  document.addEventListener('keydown', onKey);
+  overlay.addEventListener('click', onOverlay);
+  document.getElementById('modal-cancel').addEventListener('click', onCancel);
+  document.getElementById('modal-confirm').addEventListener('click', onConfirm);
+}
+
+btnReset.addEventListener('click', showResetModal);
 
 /* ---------- "Я сделал дуа" ---------- */
 btnDoneDua.addEventListener('click', async ()=>{
@@ -501,3 +540,4 @@ function closeModal(){ modalRoot.innerHTML=''; if(modalTimer){ clearTimeout(moda
 </script>
 </body>
 </html>
+```
