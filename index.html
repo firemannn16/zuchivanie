@@ -339,10 +339,14 @@ function startPractice(){
   learnControls.classList.add('hidden');
   practiceArea.classList.remove('hidden');
 
-  // Окончательно выученные первыми, затем новые слова (из orderQueue)
-  let mastered = masteredFinal.slice(); // не перемешиваем, чтобы были первыми
-  let newWords = orderQueue.slice();
-  shuffle(newWords); // перемешиваем новые для рандома
+  // Окончательно выученные первыми, затем новые слова (из orderQueue), но всего BATCH_SIZE
+  let mastered = masteredFinal.slice(); // первыми, без shuffle
+  let remainingSlots = BATCH_SIZE - mastered.length;
+  let newWords = [];
+  if (remainingSlots > 0) {
+    newWords = orderQueue.slice(0, remainingSlots);
+    shuffle(newWords); // перемешиваем новые
+  }
   practiceOrder = mastered.concat(newWords);
 
   roundMastered = [];
@@ -429,7 +433,17 @@ practiceSubmit.addEventListener('click', async () => {
 });
 
 practiceInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); practiceSubmit.click(); } });
-practiceSkip.addEventListener('click', ()=>{ if(!currentRaw) return; if(!orderQueue.includes(currentRaw)) orderQueue.push(currentRaw); practiceAccum=practiceAccum.filter(r=>r!==currentRaw); saveState(); currentRaw=null; showNextPractice(); });
+practiceSkip.addEventListener('click', ()=>{ 
+  if(!currentRaw) return;
+  if(!orderQueue.includes(currentRaw)) orderQueue.push(currentRaw);
+  practiceAccum = practiceAccum.filter(r=>r!==currentRaw);
+  // Убрать из текущей practiceOrder, чтобы не повторялось в этой практике
+  practiceOrder = practiceOrder.filter(r => r !== currentRaw);
+  saveState();
+  updateStats();
+  currentRaw = null;
+  showNextPractice();
+});
 
 /* ---------- Добавить новые слова ---------- */
 btnAdd.addEventListener('click', async () => {
