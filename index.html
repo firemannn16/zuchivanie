@@ -339,11 +339,11 @@ function startPractice(){
   learnControls.classList.add('hidden');
   practiceArea.classList.remove('hidden');
 
-  const set = new Set();
-  practiceOrder = [];
-  for(const r of practiceHistory) if(!set.has(r)){ practiceOrder.push(r); set.add(r); }
-  for(const r of practiceAccum) if(!set.has(r)){ practiceOrder.push(r); set.add(r); }
-  shuffle(practiceOrder);
+  // Окончательно выученные первыми, затем новые слова (из orderQueue)
+  let mastered = masteredFinal.slice(); // не перемешиваем, чтобы были первыми
+  let newWords = orderQueue.slice();
+  shuffle(newWords); // перемешиваем новые для рандома
+  practiceOrder = mastered.concat(newWords);
 
   roundMastered = [];
   saveState();
@@ -351,7 +351,7 @@ function startPractice(){
   showNextPractice();
 }
 
-/* ---------- showNextPractice (существующая логика) ---------- */
+/* ---------- showNextPractice ---------- */
 function showNextPractice(){
   if(!practiceOrder || practiceOrder.length===0){
     phase = 'learn';
@@ -388,8 +388,11 @@ practiceSubmit.addEventListener('click', async () => {
       if(!masteredFinal.includes(currentRaw)) masteredFinal.push(currentRaw);
       if(!practiceHistory.includes(currentRaw)) practiceHistory.push(currentRaw);
       practiceAccum = practiceAccum.filter(r=>r!==currentRaw);
+      // Удалить из orderQueue, если было (для новых слов)
+      orderQueue = orderQueue.filter(r=>r!==currentRaw);
       showMessage('Верно — отмечено как окончательно выученное.');
       saveState();
+      updateStats();
       currentRaw = null;
       enablePracticeControls();
       showNextPractice();
@@ -398,7 +401,10 @@ practiceSubmit.addEventListener('click', async () => {
       if(!masteredFinal.includes(currentRaw)) masteredFinal.push(currentRaw);
       if(!practiceHistory.includes(currentRaw)) practiceHistory.push(currentRaw);
       practiceAccum = practiceAccum.filter(r=>r!==currentRaw);
+      // Удалить из orderQueue, если было
+      orderQueue = orderQueue.filter(r=>r!==currentRaw);
       saveState();
+      updateStats();
       // показать модалку "Мелкая ошибка — засчитано"
       showPracticeAnswerModal(obj, 'Мелкая ошибка — засчитано', true);
       currentRaw = null;
@@ -423,27 +429,7 @@ practiceSubmit.addEventListener('click', async () => {
 });
 
 practiceInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); practiceSubmit.click(); } });
-
-/* ---------- ИЗМЕНЁННЫЙ обработчик: practiceSkip ----------
-   Если текущий элемент в masteredFinal, удаляем из masteredFinal и practiceHistory,
-   возвращаем в очередь (orderQueue) и обновляем стейт.
-*/
-practiceSkip.addEventListener('click', ()=>{ 
-  if(!currentRaw) return;
-  // если слово было в окончательно выученных — удалить из них и из истории практики
-  if(masteredFinal.includes(currentRaw)){
-    masteredFinal = masteredFinal.filter(r=>r!==currentRaw);
-    practiceHistory = practiceHistory.filter(r=>r!==currentRaw);
-  }
-  // вернуть в очередь для доработки (здесь добавляем в конец — можно поменять на unshift если хотите начало)
-  if(!orderQueue.includes(currentRaw)) orderQueue.push(currentRaw);
-  // убрать из practiceAccum если там было
-  practiceAccum = practiceAccum.filter(r=>r!==currentRaw);
-  saveState();
-  updateStats();
-  currentRaw = null;
-  showNextPractice();
-});
+practiceSkip.addEventListener('click', ()=>{ if(!currentRaw) return; if(!orderQueue.includes(currentRaw)) orderQueue.push(currentRaw); practiceAccum=practiceAccum.filter(r=>r!==currentRaw); saveState(); currentRaw=null; showNextPractice(); });
 
 /* ---------- Добавить новые слова ---------- */
 btnAdd.addEventListener('click', async () => {
