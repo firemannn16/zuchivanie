@@ -27,7 +27,7 @@
 </style>
 </head>
 <body>
-  <h1>Тренажёр арабских слов</h1>  
+  <h1>Тренажёр арабских слов</h1>
   <div id="screen-dua" class="dua">
     <div><strong>Перед началом тренировок</strong></div>
     <div class="arab">رَّبِّ زِدْنِى عِلْمًۭا</div>
@@ -35,7 +35,7 @@
     <div style="text-align:center;margin-top:12px">
       <button id="btn-done-dua">Я сделал дуа</button>
     </div>
-  </div>  
+  </div>
   <div id="screen-main" class="hidden">
     <div class="stats">
       <div class="stat">Всего: <span id="stat-total">0</span></div>
@@ -44,35 +44,37 @@
       <div class="stat">Пропущено: <span id="stat-skipped">0</span></div>
       <div class="stat">Фаза: <span id="stat-phase">—</span></div>
     </div>
+
     <div id="arabic">…</div>
 
-<!-- первая строка: Знаю / Не знаю -->
-<div id="learn-controls" class="controls">
-  <button id="btn-know" class="btn-primary">Знаю</button>
-  <button id="btn-dont">Не знаю</button>
-</div>
+    <!-- первая строка: Знаю / Не знаю -->
+    <div id="learn-controls" class="controls">
+      <button id="btn-know" class="btn-primary">Знаю</button>
+      <button id="btn-dont">Не знаю</button>
+    </div>
 
-<!-- вторая строка: Сброс и Добавить -->
-<div class="controls-vertical">
-  <div class="controls">
-    <button id="btn-reset" class="btn-danger">Сбросить прогресс</button>
-    <button id="btn-add">Добавить новые слова</button>
+    <!-- вторая строка: Сброс и Добавить -->
+    <div class="controls-vertical">
+      <div class="controls">
+        <button id="btn-reset" class="btn-danger">Сбросить прогресс</button>
+        <button id="btn-add">Добавить новые слова</button>
+      </div>
+    </div>
+
+    <div id="practice-area" class="hidden" style="margin-top:12px">
+      <div style="margin-bottom:8px"><strong>Практика — введите перевод на русском:</strong></div>
+      <input id="practice-input" type="text" autocomplete="off" placeholder="Введите перевод" />
+      <div class="controls" style="margin-top:8px">
+        <button id="practice-submit">Проверить</button>
+        <button id="practice-skip">Пропустить</button>
+      </div>
+    </div>
+
+    <div id="message" class="small" style="margin-top:12px"></div>
   </div>
-</div>
 
-<div id="practice-area" class="hidden" style="margin-top:12px">
-  <div style="margin-bottom:8px"><strong>Практика — введите перевод на русском:</strong></div>
-  <input id="practice-input" type="text" autocomplete="off" placeholder="Введите перевод" />
-  <div class="controls" style="margin-top:8px">
-    <button id="practice-submit">Проверить</button>
-    <button id="practice-skip">Пропустить</button>
-  </div>
-</div>
-
-<div id="message" class="small" style="margin-top:12px"></div>
-
-  </div>  
   <div id="modal-root"></div>
+
 <script>
 /* ---------- Настройки ---------- */
 const BATCH_SIZE = 10;
@@ -509,4 +511,74 @@ function showResetModal() {
     if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
   }
   function onKey(e) { if (e.key === 'Escape') onCancel(); }
-  function on
+  function onOverlay(e) { if (e.target === overlay) onCancel(); }
+  function onCancel() { cleanup(); }
+  function onConfirm() {
+    cleanup();
+    // Выполнить сброс
+    clearState();
+    orderQueue = allWords.map(w=>w.rawLine); shuffle(orderQueue);
+    masteredFinal = []; practiceHistory = []; roundMastered = []; practiceAccum = []; practiceOrder = []; phase='learn'; currentRaw=null;
+    skippedCount = 0;
+    screenMain.classList.add('hidden'); screenDua.classList.remove('hidden');
+    updateStats();
+    showMessage('Прогресс сброшен.');
+  }
+
+  document.addEventListener('keydown', onKey);
+  overlay.addEventListener('click', onOverlay);
+  document.getElementById('modal-cancel').addEventListener('click', onCancel);
+  document.getElementById('modal-confirm').addEventListener('click', onConfirm);
+}
+
+btnReset.addEventListener('click', showResetModal);
+
+/* ---------- "Я сделал дуа" ---------- */
+/* исправленный обработчик: сразу переключает экран, затем безопасно пытается загрузить слова */
+btnDoneDua.addEventListener('click', async ()=>{
+  // мгновенно переключаем UX (чтобы клик всегда чувствовался)
+  screenDua.classList.add('hidden');
+  screenMain.classList.remove('hidden');
+
+  // если слов нет — пытаемся загрузить, но не блокируем интерфейс при ошибке
+  if(!allWords.length){
+    try{
+      await initDictionary();
+    }catch(e){
+      console.warn('initDictionary failed:', e);
+      showMessage('Не удалось загрузить список слов — проверьте подключение. Продолжаем работу.');
+      // не return — позволяем пользователю работать (кнопки будут работать, просто слов может не быть)
+    }
+  }
+
+  // показываем либо практику, либо начинаем обучение
+  if(phase==='practice' && practiceOrder && practiceOrder.length){
+    learnControls.classList.add('hidden');
+    practiceArea.classList.remove('hidden');
+    showNextPractice();
+  } else {
+    practiceArea.classList.add('hidden');
+    learnControls.classList.remove('hidden');
+    if(currentRaw){
+      const o = allWords.find(w=>w.rawLine===currentRaw);
+      arabicDiv.textContent = (o && (o.arabFull || o.arabParts.join(' - ')))||currentRaw;
+    } else {
+      showNextLearn();
+    }
+  }
+});
+
+/* ---------- init ---------- */
+(async function bootstrap(){
+  try{ await initDictionary(); screenDua.classList.remove('hidden'); screenMain.classList.add('hidden'); }catch(e){ console.error(e); /* не мешаем UI */ }
+})();
+
+window.addEventListener('beforeunload', saveState);
+window.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') saveState(); });
+
+/* ---------- Modal helper ---------- */
+function closeModal(){ modalRoot.innerHTML=''; if(modalTimer){ clearTimeout(modalTimer); modalTimer=null; } }
+
+</script>
+</body>
+</html>
