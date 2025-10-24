@@ -1,5 +1,5 @@
-```html
 <!doctype html>
+
 <html lang="ru">
 <head>
 <meta charset="utf-8"/>
@@ -27,56 +27,47 @@
 </style>
 </head>
 <body>
-  <h1>Тренажёр арабских слов</h1>
-
-  <div id="screen-dua" class="dua">
+  <h1>Тренажёр арабских слов</h1>  <div id="screen-dua" class="dua">
     <div><strong>Перед началом тренировок</strong></div>
     <div class="arab">رَّبِّ زِدْنِى عِلْمًۭا</div>
     <div style="text-align:center;margin-top:6px">Перевод: «Господь мой! Приумножь мои знания»</div>
     <div style="text-align:center;margin-top:12px">
       <button id="btn-done-dua">Я сделал дуа</button>
     </div>
-  </div>
-
-  <div id="screen-main" class="hidden">
+  </div>  <div id="screen-main" class="hidden">
     <div class="stats">
       <div class="stat">Всего: <span id="stat-total">0</span></div>
       <div class="stat">Оконч. выучено: <span id="stat-mastered">0</span></div>
       <div class="stat">В очереди: <span id="stat-remaining">0</span></div>
       <div class="stat">Фаза: <span id="stat-phase">—</span></div>
-    </div>
+    </div><div id="arabic">…</div>
 
-    <div id="arabic">…</div>
+<!-- первая строка: Знаю / Не знаю -->
+<div id="learn-controls" class="controls">
+  <button id="btn-know" class="btn-primary">Знаю</button>
+  <button id="btn-dont">Не знаю</button>
+</div>
 
-    <!-- первая строка: Знаю / Не знаю -->
-    <div id="learn-controls" class="controls">
-      <button id="btn-know" class="btn-primary">Знаю</button>
-      <button id="btn-dont">Не знаю</button>
-    </div>
-
-    <!-- вторая строка: Сброс и Добавить -->
-    <div class="controls-vertical">
-      <div class="controls">
-        <button id="btn-reset" class="btn-danger">Сбросить прогресс</button>
-        <button id="btn-add">Добавить новые слова</button>
-      </div>
-    </div>
-
-    <div id="practice-area" class="hidden" style="margin-top:12px">
-      <div style="margin-bottom:8px"><strong>Практика — введите перевод на русском:</strong></div>
-      <input id="practice-input" type="text" autocomplete="off" placeholder="Введите перевод" />
-      <div class="controls" style="margin-top:8px">
-        <button id="practice-submit">Проверить</button>
-        <button id="practice-skip">Пропустить</button>
-      </div>
-    </div>
-
-    <div id="message" class="small" style="margin-top:12px"></div>
+<!-- вторая строка: Сброс и Добавить -->
+<div class="controls-vertical">
+  <div class="controls">
+    <button id="btn-reset" class="btn-danger">Сбросить прогресс</button>
+    <button id="btn-add">Добавить новые слова</button>
   </div>
+</div>
 
-  <div id="modal-root"></div>
+<div id="practice-area" class="hidden" style="margin-top:12px">
+  <div style="margin-bottom:8px"><strong>Практика — введите перевод на русском:</strong></div>
+  <input id="practice-input" type="text" autocomplete="off" placeholder="Введите перевод" />
+  <div class="controls" style="margin-top:8px">
+    <button id="practice-submit">Проверить</button>
+    <button id="practice-skip">Пропустить</button>
+  </div>
+</div>
 
-<script>
+<div id="message" class="small" style="margin-top:12px"></div>
+
+  </div>  <div id="modal-root"></div><script>
 /* ---------- Настройки ---------- */
 const BATCH_SIZE = 10;
 const SHOW_ANSWER_MS = 15000;
@@ -138,7 +129,7 @@ function parseLine(raw){
   return { rawLine: raw, rus, arabParts, arabFull: right.join(' - ') || '' };
 }
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } }
-function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]); }
+function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"})[c]); }
 
 /* ---------- last-letter mistake detector ---------- */
 function isLastCharMistake(userRaw, correctRaw){
@@ -236,7 +227,9 @@ async function initDictionary(){
 function updateStats(){
   statTotal.textContent = allWords.length;
   statMastered.textContent = masteredFinal.length;
-  statRemaining.textContent = orderQueue.length;
+  // Показываем общее количество слов, которые ещё в очереди или в текущей серии практики
+  const remainingCount = (Array.isArray(orderQueue) ? orderQueue.length : 0) + (Array.isArray(practiceOrder) ? practiceOrder.length : 0);
+  statRemaining.textContent = remainingCount;
   statPhase.textContent = phase === 'learn' ? 'Заучивание' : (phase === 'practice' ? 'Практика' : '—');
 }
 function showMessage(t){ messageDiv.textContent = t || ''; }
@@ -346,6 +339,8 @@ function startPractice(){
   let newWords = [];
   if (remainingSlots > 0) {
     newWords = orderQueue.slice(0, remainingSlots);
+    // Удаляем выбранные слова из orderQueue, чтобы статистика показывала корректное количество оставшихся
+    orderQueue = orderQueue.filter(r => !newWords.includes(r));
     shuffle(newWords); // перемешиваем новые
   }
   practiceOrder = mastered.concat(newWords);
@@ -436,6 +431,7 @@ practiceSubmit.addEventListener('click', async () => {
 practiceInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); practiceSubmit.click(); } });
 practiceSkip.addEventListener('click', ()=>{ 
   if(!currentRaw) return;
+  // При пропуске возвращаем слово в очередь обучения, если его там ещё нет
   if(!orderQueue.includes(currentRaw)) orderQueue.push(currentRaw);
   practiceAccum = practiceAccum.filter(r=>r!==currentRaw);
   // Убрать из текущей practiceOrder, чтобы не повторялось в этой практике
@@ -537,7 +533,5 @@ window.addEventListener('visibilitychange', ()=>{ if(document.visibilityState===
 /* ---------- Modal helper ---------- */
 function closeModal(){ modalRoot.innerHTML=''; if(modalTimer){ clearTimeout(modalTimer); modalTimer=null; } }
 
-</script>
-</body>
+</script></body>
 </html>
-```
