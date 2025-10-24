@@ -357,9 +357,10 @@ function startPractice(){
     const candidates = orderQueue.filter(r => !exclude.has(r));
     newWords = candidates.slice(0, remainingSlots);
 
-    // Удаляем из orderQueue ТОЛЬКО те слова, которые мы действительно взяли
+    // ВАЖНО: теперь мы НЕ удаляем эти newWords из orderQueue здесь.
+    // Удаление будет происходить только когда слово действительно помечено как выученное в ходе практики
+    // (это предотвращает резкие массовые удаления при старте практики).
     if(newWords.length) {
-      orderQueue = orderQueue.filter(r => !newWords.includes(r));
       shuffle(newWords);
     }
   }
