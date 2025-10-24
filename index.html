@@ -27,7 +27,7 @@
 </style>
 </head>
 <body>
-  <h1>Тренажёр арабских слов</h1>
+  <h1>Тренажёр арабских слов</h1>  
   <div id="screen-dua" class="dua">
     <div><strong>Перед началом тренировок</strong></div>
     <div class="arab">رَّبِّ زِدْنِى عِلْمًۭا</div>
@@ -35,46 +35,43 @@
     <div style="text-align:center;margin-top:12px">
       <button id="btn-done-dua">Я сделал дуа</button>
     </div>
-  </div>
+  </div>  
   <div id="screen-main" class="hidden">
     <div class="stats">
       <div class="stat">Всего: <span id="stat-total">0</span></div>
       <div class="stat">Оконч. выучено: <span id="stat-mastered">0</span></div>
       <div class="stat">В очереди: <span id="stat-remaining">0</span></div>
-      <div class="stat">Пропущено: <span id="stat-skipped">0</span></div>
       <div class="stat">Фаза: <span id="stat-phase">—</span></div>
     </div>
-
     <div id="arabic">…</div>
 
-    <!-- первая строка: Знаю / Не знаю -->
-    <div id="learn-controls" class="controls">
-      <button id="btn-know" class="btn-primary">Знаю</button>
-      <button id="btn-dont">Не знаю</button>
-    </div>
+<!-- первая строка: Знаю / Не знаю -->
+<div id="learn-controls" class="controls">
+  <button id="btn-know" class="btn-primary">Знаю</button>
+  <button id="btn-dont">Не знаю</button>
+</div>
 
-    <!-- вторая строка: Сброс и Добавить -->
-    <div class="controls-vertical">
-      <div class="controls">
-        <button id="btn-reset" class="btn-danger">Сбросить прогресс</button>
-        <button id="btn-add">Добавить новые слова</button>
-      </div>
-    </div>
-
-    <div id="practice-area" class="hidden" style="margin-top:12px">
-      <div style="margin-bottom:8px"><strong>Практика — введите перевод на русском:</strong></div>
-      <input id="practice-input" type="text" autocomplete="off" placeholder="Введите перевод" />
-      <div class="controls" style="margin-top:8px">
-        <button id="practice-submit">Проверить</button>
-        <button id="practice-skip">Пропустить</button>
-      </div>
-    </div>
-
-    <div id="message" class="small" style="margin-top:12px"></div>
+<!-- вторая строка: Сброс и Добавить -->
+<div class="controls-vertical">
+  <div class="controls">
+    <button id="btn-reset" class="btn-danger">Сбросить прогресс</button>
+    <button id="btn-add">Добавить новые слова</button>
   </div>
+</div>
 
+<div id="practice-area" class="hidden" style="margin-top:12px">
+  <div style="margin-bottom:8px"><strong>Практика — введите перевод на русском:</strong></div>
+  <input id="practice-input" type="text" autocomplete="off" placeholder="Введите перевод" />
+  <div class="controls" style="margin-top:8px">
+    <button id="practice-submit">Проверить</button>
+    <button id="practice-skip">Пропустить</button>
+  </div>
+</div>
+
+<div id="message" class="small" style="margin-top:12px"></div>
+
+  </div>  
   <div id="modal-root"></div>
-
 <script>
 /* ---------- Настройки ---------- */
 const BATCH_SIZE = 10;
@@ -96,9 +93,6 @@ let phase = 'learn';
 let currentRaw = null;
 let modalTimer = null;
 
-// новый счётчик пропущенных
-let skippedCount = 0;
-
 /* ---------- DOM ---------- */
 const screenDua = document.getElementById('screen-dua');
 const screenMain = document.getElementById('screen-main');
@@ -107,7 +101,6 @@ const btnDoneDua = document.getElementById('btn-done-dua');
 const statTotal = document.getElementById('stat-total');
 const statMastered = document.getElementById('stat-mastered');
 const statRemaining = document.getElementById('stat-remaining');
-const statSkipped = document.getElementById('stat-skipped');
 const statPhase = document.getElementById('stat-phase');
 
 const arabicDiv = document.getElementById('arabic');
@@ -172,8 +165,7 @@ function saveState(){
       roundMastered: roundMastered.slice(),
       practiceAccum: practiceAccum.slice(),
       practiceOrder: practiceOrder.slice(),
-      phase, currentRaw,
-      skippedCount // сохраняем счётчик пропусков
+      phase, currentRaw
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(st));
   }catch(e){ console.warn('save failed', e); }
@@ -221,8 +213,6 @@ async function initDictionary(){
     practiceOrder = (Array.isArray(st.practiceOrder) ? st.practiceOrder.filter(r=>serverSet.has(r)) : []);
     phase = st.phase || 'learn';
     currentRaw = (st.currentRaw && serverSet.has(st.currentRaw)) ? st.currentRaw : null;
-    // загружаем saved skippedCount, если есть
-    skippedCount = (typeof st.skippedCount === 'number') ? st.skippedCount : 0;
     if(!orderQueue.length){
       orderQueue = allWords.map(w=>w.rawLine).filter(r=>!masteredFinal.includes(r));
       shuffle(orderQueue);
@@ -233,7 +223,6 @@ async function initDictionary(){
     phase = 'learn'; currentRaw = null;
     orderQueue = allWords.map(w=>w.rawLine);
     shuffle(orderQueue);
-    skippedCount = 0;
   }
   updateStats();
   saveState();
@@ -243,10 +232,8 @@ async function initDictionary(){
 function updateStats(){
   statTotal.textContent = allWords.length;
   statMastered.textContent = masteredFinal.length;
-  // Показываем общее количество слов, которые ещё в очереди или в текущей серии практики
-  const remainingCount = (Array.isArray(orderQueue) ? orderQueue.length : 0) + (Array.isArray(practiceOrder) ? practiceOrder.length : 0);
-  statRemaining.textContent = remainingCount;
-  statSkipped.textContent = skippedCount || 0;
+  // теперь "В очереди" показывает только orderQueue (то, что считается не выученным)
+  statRemaining.textContent = Array.isArray(orderQueue) ? orderQueue.length : 0;
   statPhase.textContent = phase === 'learn' ? 'Заучивание' : (phase === 'practice' ? 'Практика' : '—');
 }
 function showMessage(t){ messageDiv.textContent = t || ''; }
@@ -448,17 +435,21 @@ practiceSubmit.addEventListener('click', async () => {
 practiceInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); practiceSubmit.click(); } });
 practiceSkip.addEventListener('click', ()=>{ 
   if(!currentRaw) return;
-  // Засчитываем пропуск
-  skippedCount = (skippedCount || 0) + 1;
 
-  // При пропуске возвращаем слово в очередь обучения, если его там ещё нет
-  if(!orderQueue.includes(currentRaw)) orderQueue.push(currentRaw);
-  practiceAccum = practiceAccum.filter(r=>r!==currentRaw);
-  // Убрать из текущей practiceOrder, чтобы не повторялось в этой практике
+  // Возвращаем слово в начало очереди изучения (если его там ещё нет)
+  if(!orderQueue.includes(currentRaw)) orderQueue.unshift(currentRaw);
+
+  // Убираем текущее слово из practiceOrder, чтобы не повторялось в текущей сессии
   practiceOrder = practiceOrder.filter(r => r !== currentRaw);
+
+  // Чистим временные накопления
+  practiceAccum = practiceAccum.filter(r=>r!==currentRaw);
+
   saveState();
   updateStats();
+
   currentRaw = null;
+  // Переходим к следующему слову в практике
   showNextPractice();
 });
 
@@ -519,7 +510,6 @@ function showResetModal() {
     clearState();
     orderQueue = allWords.map(w=>w.rawLine); shuffle(orderQueue);
     masteredFinal = []; practiceHistory = []; roundMastered = []; practiceAccum = []; practiceOrder = []; phase='learn'; currentRaw=null;
-    skippedCount = 0;
     screenMain.classList.add('hidden'); screenDua.classList.remove('hidden');
     updateStats();
     showMessage('Прогресс сброшен.');
@@ -534,24 +524,20 @@ function showResetModal() {
 btnReset.addEventListener('click', showResetModal);
 
 /* ---------- "Я сделал дуа" ---------- */
-/* исправленный обработчик: сразу переключает экран, затем безопасно пытается загрузить слова */
+/* обработчик: сразу переключает экран, затем безопасно пытается загрузить слова */
 btnDoneDua.addEventListener('click', async ()=>{
-  // мгновенно переключаем UX (чтобы клик всегда чувствовался)
   screenDua.classList.add('hidden');
   screenMain.classList.remove('hidden');
 
-  // если слов нет — пытаемся загрузить, но не блокируем интерфейс при ошибке
   if(!allWords.length){
     try{
       await initDictionary();
     }catch(e){
       console.warn('initDictionary failed:', e);
       showMessage('Не удалось загрузить список слов — проверьте подключение. Продолжаем работу.');
-      // не return — позволяем пользователю работать (кнопки будут работать, просто слов может не быть)
     }
   }
 
-  // показываем либо практику, либо начинаем обучение
   if(phase==='practice' && practiceOrder && practiceOrder.length){
     learnControls.classList.add('hidden');
     practiceArea.classList.remove('hidden');
@@ -570,7 +556,7 @@ btnDoneDua.addEventListener('click', async ()=>{
 
 /* ---------- init ---------- */
 (async function bootstrap(){
-  try{ await initDictionary(); screenDua.classList.remove('hidden'); screenMain.classList.add('hidden'); }catch(e){ console.error(e); /* не мешаем UI */ }
+  try{ await initDictionary(); screenDua.classList.remove('hidden'); screenMain.classList.add('hidden'); }catch(e){ console.error(e); }
 })();
 
 window.addEventListener('beforeunload', saveState);
@@ -579,6 +565,5 @@ window.addEventListener('visibilitychange', ()=>{ if(document.visibilityState===
 /* ---------- Modal helper ---------- */
 function closeModal(){ modalRoot.innerHTML=''; if(modalTimer){ clearTimeout(modalTimer); modalTimer=null; } }
 
-</script>
-</body>
+</script></body>
 </html>
