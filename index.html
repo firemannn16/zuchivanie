@@ -232,8 +232,7 @@ async function initDictionary(){
 function updateStats(){
   statTotal.textContent = allWords.length;
   statMastered.textContent = masteredFinal.length;
-  // теперь "В очереди" показывает только orderQueue (то, что считается не выученным)
-  statRemaining.textContent = Array.isArray(orderQueue) ? orderQueue.length : 0;
+  statRemaining.textContent = phase === 'practice' ? practiceOrder.length : (Array.isArray(orderQueue) ? orderQueue.length : 0);
   statPhase.textContent = phase === 'learn' ? 'Заучивание' : (phase === 'practice' ? 'Практика' : '—');
 }
 function showMessage(t){ messageDiv.textContent = t || ''; }
@@ -434,7 +433,8 @@ practiceSubmit.addEventListener('click', async () => {
       enablePracticeControls();
     } else {
       // полная ошибка: вернуть в начало очереди обучения
-      if(!orderQueue.includes(currentRaw)) orderQueue.unshift(currentRaw);
+      orderQueue = orderQueue.filter(r => r !== currentRaw);
+      orderQueue.unshift(currentRaw);
       // если слово было в masteredFinal — удалить (пользователь ошибся по уже выученному)
       const wasMastered = masteredFinal.includes(currentRaw);
       if(wasMastered){
@@ -455,8 +455,16 @@ practiceInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventD
 practiceSkip.addEventListener('click', ()=>{ 
   if(!currentRaw) return;
 
-  // Возвращаем слово в начало очереди изучения (если его там ещё нет)
-  if(!orderQueue.includes(currentRaw)) orderQueue.unshift(currentRaw);
+  // Удаляем из masteredFinal, если было (аналогично ошибке)
+  const wasMastered = masteredFinal.includes(currentRaw);
+  if (wasMastered) {
+    masteredFinal = masteredFinal.filter(r => r !== currentRaw);
+    practiceHistory = practiceHistory.filter(r => r !== currentRaw);
+  }
+
+  // Перемещаем/добавляем в начало orderQueue
+  orderQueue = orderQueue.filter(r => r !== currentRaw);
+  orderQueue.unshift(currentRaw);
 
   // Убираем текущее слово из practiceOrder, чтобы не повторялось в текущей сессии
   practiceOrder = practiceOrder.filter(r => r !== currentRaw);
