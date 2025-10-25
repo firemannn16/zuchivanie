@@ -359,6 +359,9 @@ function startPractice(){
     if(newWords.length) shuffle(newWords);
   }
 
+  // Удаляем новые слова из основной очереди (теперь они в практике; если пропустить — вернутся обратно)
+  orderQueue = orderQueue.filter(r => !newWords.includes(r));
+
   practiceOrder = mastered.concat(newWords);
 
   // Сбрасываем накопления для раунда
