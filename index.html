@@ -299,7 +299,7 @@ function showDontKnowModal(obj){
   let html = '';
   const ar = obj.arabParts && obj.arabParts.length ? obj.arabParts : (obj.arabFull?obj.arabFull.split(/\s*-\s*/).map(s=>s.trim()):[]);
   if(obj.rus.length && ar.length && obj.rus.length === ar.length){
-    for(let i=0;i<obj.rus.length;i++) html += `<div class="pair">${escapeHtml(obj.rus[i])} — <span style="direction:rtl">${escapeHtml(ar[i])}</span></div>`;
+    for(let i=1;i<obj.rus.length;i++) html += `<div class="pair">${escapeHtml(obj.rus[i])} — <span style="direction:rtl">${escapeHtml(ar[i])}</span></div>`;
   } else {
     const arabAll = ar.join(' - ');
     for(const r of obj.rus.length?obj.rus:['']) html += `<div class="pair">${escapeHtml(r)} — <span style="direction:rtl">${escapeHtml(arabAll)}</span></div>`;
