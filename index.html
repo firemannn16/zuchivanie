@@ -256,7 +256,8 @@ function showNextLearn(){
     saveState();
     return;
   }
-  currentRaw = orderQueue.shift();
+  // ИЗМЕНЕНИЕ: Не удаляем слово из очереди сразу, только берем первое
+  currentRaw = orderQueue[0];
   const obj = allWords.find(w=>w.rawLine===currentRaw) || {rawLine:currentRaw, rus:[], arabParts:[], arabFull:''};
   arabicDiv.textContent = obj.arabFull || (obj.arabParts||[]).join(' - ') || '[нет арабского]';
   showMessage('Нажмите «Знаю» или «Не знаю».');
@@ -268,6 +269,10 @@ function showNextLearn(){
 // старт практики только при ПЕРЕХОДЕ через порог (=== BATCH_SIZE)
 btnKnow.addEventListener('click', () => {
   if(!currentRaw) return;
+  
+  // ИЗМЕНЕНИЕ: Удаляем слово из очереди и добавляем в практику
+  orderQueue.shift();
+  
   if(!roundMastered.includes(currentRaw)) roundMastered.push(currentRaw);
   if(!practiceAccum.includes(currentRaw)) practiceAccum.push(currentRaw);
   currentRaw = null;
@@ -283,9 +288,13 @@ btnKnow.addEventListener('click', () => {
 
 btnDont.addEventListener('click', () => {
   if(!currentRaw) return;
+  
+  // ИЗМЕНЕНИЕ: Удаляем из очереди и добавляем в практику
+  orderQueue.shift();
+  if(!practiceAccum.includes(currentRaw)) practiceAccum.push(currentRaw);
+  
   const obj = allWords.find(w=>w.rawLine===currentRaw) || parseLine(currentRaw);
   showDontKnowModal(obj);
-  orderQueue.push(currentRaw);
   currentRaw = null;
   saveState();
   updateStats();
@@ -522,7 +531,7 @@ function showResetModal() {
     const confirmBtn = document.getElementById('modal-confirm');
     if (cancelBtn) cancelBtn.removeEventListener('click', onCancel);
     if (confirmBtn) confirmBtn.removeEventListener('click', onConfirm);
-    if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+    if(overlay.parentNode) overlay.parentNode.removeChild(overlay);
   }
   function onKey(e) { if (e.key === 'Escape') onCancel(); }
   function onOverlay(e) { if (e.target === overlay) onCancel(); }
