@@ -235,15 +235,11 @@ async function initDictionary(){
 function updateStats(){
   statTotal.textContent = allWords.length;
   statMastered.textContent = masteredFinal.length;
-  if(phase === 'practice'){
-    // показываем оставшиеся в практике и отдельно в основной очереди — так точнее для пользователя
-    statRemaining.textContent = `${practiceOrder.length} (практика) / ${orderQueue.length} (в очереди)`;
-  } else {
-    statRemaining.textContent = Array.isArray(orderQueue) ? orderQueue.length : 0;
-  }
+  // Показываем только одно число — сколько элементов в основной очереди заучивания
+  statRemaining.textContent = Array.isArray(orderQueue) ? orderQueue.length : 0;
   statPhase.textContent = phase === 'learn' ? 'Заучивание' : (phase === 'practice' ? 'Практика' : '—');
 }
-function showMessage(t){ messageDiv.textContent = t || ''; }
+
 
 /* ---------- Заучивание ---------- */
 function showNextLearn(){
