@@ -235,7 +235,6 @@ async function initDictionary(){
 function updateStats(){
   statTotal.textContent = allWords.length;
   statMastered.textContent = masteredFinal.length;
-  // <<--- FIX: показываем только длину основной очереди orderQueue (обычное "в очереди")
   statRemaining.textContent = Array.isArray(orderQueue) ? orderQueue.length : 0;
   statPhase.textContent = phase === 'learn' ? 'Заучивание' : (phase === 'practice' ? 'Практика' : '—');
 }
@@ -347,20 +346,20 @@ function startPractice(){
   practiceArea.classList.remove('hidden');
 
   // Сформировать practiceOrder: сначала окончательно выученные (masteredFinal),
-  // затем небольшое количество новых слов из orderQueue, всего BATCH_SIZE
+  // затем небольшое количество новых слов из practiceAccum, всего BATCH_SIZE
   let mastered = masteredFinal.slice(0, BATCH_SIZE);
   let remainingSlots = Math.max(0, BATCH_SIZE - mastered.length);
   let newWords = [];
 
-  if (remainingSlots > 0 && orderQueue.length > 0) {
-    const exclude = new Set([...mastered, ...roundMastered, ...practiceAccum, ...practiceOrder]);
-    const candidates = orderQueue.filter(r => !exclude.has(r));
+  if (remainingSlots > 0 && practiceAccum.length > 0) {
+    const exclude = new Set([...mastered, ...practiceOrder]);
+    const candidates = practiceAccum.filter(r => !exclude.has(r));
     newWords = candidates.slice(0, remainingSlots);
     if(newWords.length) shuffle(newWords);
   }
 
-  // Удаляем новые слова из основной очереди (теперь они в практике; если пропустить — вернутся обратно)
-  orderQueue = orderQueue.filter(r => !newWords.includes(r));
+  // Удаляем новые слова из practiceAccum (теперь они в практике; если пропустить — вернутся в orderQueue)
+  practiceAccum = practiceAccum.filter(r => !newWords.includes(r));
 
   practiceOrder = mastered.concat(newWords);
 
