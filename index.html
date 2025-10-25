@@ -82,12 +82,12 @@ const STORAGE_KEY = (() => {
 
 /* ---------- Состояние ---------- */
 let allWords = [];
-let orderQueue = [];
-let masteredFinal = [];
-let practiceHistory = [];
-let roundMastered = [];
-let practiceAccum = [];
-let practiceOrder = [];
+let orderQueue = [];           // Слова для изучения
+let masteredFinal = [];        // Окончательно выученные слова
+let practiceHistory = [];      // История практики
+let roundMastered = [];        // Выученные в текущем раунде
+let practiceAccum = [];        // Накопленные для практики
+let practiceOrder = [];        // Порядок слов в практике
 let phase = 'learn';
 let currentRaw = null;
 let modalTimer = null;
@@ -204,9 +204,6 @@ async function initDictionary(){
     orderQueue = (Array.isArray(st.orderQueue) ? st.orderQueue.filter(r=>serverSet.has(r)) : []);
     const oldSnap = new Set(st.allRaw || []);
     const newOnServer = allWords.map(w=>w.rawLine).filter(r=>!oldSnap.has(r));
-    // IMPORTANT: do NOT auto-insert server new words into orderQueue on normal load
-    // unless user performed FULL reset. We only append newOnServer to orderQueue here
-    // so they are available if the saved orderQueue had been empty (edge-case). 
     for(const r of newOnServer) if(!orderQueue.includes(r)) orderQueue.push(r);
     masteredFinal = (Array.isArray(st.masteredFinal) ? st.masteredFinal.filter(r=>serverSet.has(r)) : []);
     practiceHistory = (Array.isArray(st.practiceHistory) ? st.practiceHistory.filter(r=>serverSet.has(r)) : []);
@@ -256,7 +253,7 @@ function showNextLearn(){
     saveState();
     return;
   }
-  // ИЗМЕНЕНИЕ: Не удаляем слово из очереди сразу, только берем первое
+  // Показываем первое слово из очереди, НЕ удаляем его
   currentRaw = orderQueue[0];
   const obj = allWords.find(w=>w.rawLine===currentRaw) || {rawLine:currentRaw, rus:[], arabParts:[], arabFull:''};
   arabicDiv.textContent = obj.arabFull || (obj.arabParts||[]).join(' - ') || '[нет арабского]';
@@ -266,20 +263,20 @@ function showNextLearn(){
 }
 
 /* ---------- Кнопки заучивания ---------- */
-// старт практики только при ПЕРЕХОДЕ через порог (=== BATCH_SIZE)
 btnKnow.addEventListener('click', () => {
   if(!currentRaw) return;
   
-  // ИЗМЕНЕНИЕ: Удаляем слово из очереди и добавляем в практику
+  // Удаляем слово из очереди и добавляем в накопление
   orderQueue.shift();
-  
   if(!roundMastered.includes(currentRaw)) roundMastered.push(currentRaw);
   if(!practiceAccum.includes(currentRaw)) practiceAccum.push(currentRaw);
+  
   currentRaw = null;
   saveState();
   updateStats();
 
-  if (roundMastered.length === BATCH_SIZE) {
+  // Проверяем, накопилось ли 10 слов
+  if (roundMastered.length >= BATCH_SIZE) {
     startPractice();
   } else {
     showNextLearn();
@@ -289,7 +286,7 @@ btnKnow.addEventListener('click', () => {
 btnDont.addEventListener('click', () => {
   if(!currentRaw) return;
   
-  // ИЗМЕНЕНИЕ: Удаляем из очереди и добавляем в практику
+  // Удаляем слово из очереди и добавляем в накопление
   orderQueue.shift();
   if(!practiceAccum.includes(currentRaw)) practiceAccum.push(currentRaw);
   
@@ -358,15 +355,21 @@ function startPractice(){
   // 1. Сначала ВСЕ слова из masteredFinal (для повторения)
   let practiceWords = masteredFinal.slice();
   
-  // 2. Добавляем новые слова из practiceAccum (до BATCH_SIZE новых)
+  // 2. Добавляем 10 новых слов из practiceAccum
   let newWords = practiceAccum.slice(0, BATCH_SIZE);
   
-  // 3. Объединяем и перемешиваем
+  // 3. Объединяем: сначала ВСЕ выученные, потом 10 новых
   practiceOrder = practiceWords.concat(newWords);
-  shuffle(practiceOrder);
   
-  // 4. Удаляем новые слова из practiceAccum (они теперь в практике)
-  practiceAccum = practiceAccum.filter(r => !newWords.includes(r));
+  // 4. Перемешиваем только выученные слова между собой
+  if(practiceWords.length > 1) {
+    const shuffledMastered = practiceWords.slice();
+    shuffle(shuffledMastered);
+    practiceOrder = shuffledMastered.concat(newWords);
+  }
+  
+  // 5. Очищаем practiceAccum (слова теперь в практике)
+  practiceAccum = [];
 
   // Сбрасываем накопления для раунда
   roundMastered = [];
@@ -380,8 +383,7 @@ function showNextPractice(){
   if(!practiceOrder || practiceOrder.length === 0) {
     // ИСПРАВЛЕНИЕ: Возвращаем неосвоенные слова в orderQueue
     if(roundMastered.length > 0) {
-      // Слова, которые были освоены в этом раунде, остаются в masteredFinal
-      // Слова, которые НЕ были освоены, возвращаем в orderQueue
+      // Слова, которые НЕ были освоены в этом раунде, возвращаем в orderQueue
       const notMastered = practiceOrder.filter(word => !roundMastered.includes(word));
       orderQueue = orderQueue.concat(notMastered);
     }
@@ -418,14 +420,10 @@ practiceSubmit.addEventListener('click', async () => {
     const exact = (obj.rus||[]).some(r => normalizeRu(r) === userNorm);
     const almost = !exact && (obj.rus||[]).some(r => isLastCharMistake(userNorm, normalizeRu(r)));
     if(exact){
-      // ИСПРАВЛЕНИЕ: Правильный ответ - добавляем в roundMastered
+      // Правильный ответ - добавляем в roundMastered
       if(!roundMastered.includes(currentRaw)) roundMastered.push(currentRaw);
       if(!masteredFinal.includes(currentRaw)) masteredFinal.push(currentRaw);
       if(!practiceHistory.includes(currentRaw)) practiceHistory.push(currentRaw);
-      
-      // Убираем из practiceAccum если там есть
-      practiceAccum = practiceAccum.filter(r=>r!==currentRaw);
-      orderQueue = orderQueue.filter(r=>r!==currentRaw);
       
       showMessage('Верно — отмечено как окончательно выученное.');
       saveState();
@@ -434,13 +432,10 @@ practiceSubmit.addEventListener('click', async () => {
       enablePracticeControls();
       showNextPractice();
     } else if(almost){
-      // ИСПРАВЛЕНИЕ: Мелкая ошибка - тоже засчитываем
+      // Мелкая ошибка - тоже засчитываем
       if(!roundMastered.includes(currentRaw)) roundMastered.push(currentRaw);
       if(!masteredFinal.includes(currentRaw)) masteredFinal.push(currentRaw);
       if(!practiceHistory.includes(currentRaw)) practiceHistory.push(currentRaw);
-      
-      practiceAccum = practiceAccum.filter(r=>r!==currentRaw);
-      orderQueue = orderQueue.filter(r=>r!==currentRaw);
       
       saveState();
       updateStats();
@@ -448,17 +443,13 @@ practiceSubmit.addEventListener('click', async () => {
       currentRaw = null;
       enablePracticeControls();
     } else {
-      // ИСПРАВЛЕНИЕ: Неправильный ответ - НЕ теряем слово!
-      // Если это было из masteredFinal - убираем оттуда и возвращаем в orderQueue
+      // ИСПРАВЛЕНИЕ: Неправильный ответ - возвращаем в НАЧАЛО orderQueue
+      orderQueue.unshift(currentRaw); // Добавляем в начало очереди
+      
+      // Если это было из masteredFinal - убираем оттуда
       if(masteredFinal.includes(currentRaw)) {
         masteredFinal = masteredFinal.filter(r=>r!==currentRaw);
         practiceHistory = practiceHistory.filter(r=>r!==currentRaw);
-        orderQueue.push(currentRaw); // Возвращаем в очередь для повторного изучения
-      }
-      // Если это было новое слово - тоже возвращаем в orderQueue
-      else if(practiceAccum.includes(currentRaw)) {
-        practiceAccum = practiceAccum.filter(r=>r!==currentRaw);
-        orderQueue.push(currentRaw);
       }
       
       saveState();
@@ -474,17 +465,14 @@ practiceInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventD
 practiceSkip.addEventListener('click', ()=>{ 
   if(!currentRaw) return;
 
-  // ИСПРАВЛЕНИЕ: Пропуск - возвращаем слово в orderQueue
+  // ИСПРАВЛЕНИЕ: Пропуск - возвращаем в НАЧАЛО orderQueue
+  orderQueue.unshift(currentRaw);
+  
+  // Если это было из masteredFinal - убираем оттуда
   if(masteredFinal.includes(currentRaw)) {
     masteredFinal = masteredFinal.filter(r => r !== currentRaw);
     practiceHistory = practiceHistory.filter(r => r !== currentRaw);
   }
-  
-  // Возвращаем в orderQueue
-  orderQueue.push(currentRaw);
-  
-  // Убираем из practiceAccum если там есть
-  practiceAccum = practiceAccum.filter(r=>r!==currentRaw);
 
   saveState();
   updateStats();
