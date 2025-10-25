@@ -26,7 +26,7 @@
 </style>
 </head>
 <body>
-  <h1>Тренажёр арабских слов</h1>
+  <h1>Тренажёр арабских слов</h1>  
   <div id="screen-dua" class="dua">
     <div><strong>Перед началом тренировок</strong></div>
     <div class="arab">رَّبِّ زِدْنِى عِلْمًۭا</div>
@@ -34,7 +34,7 @@
     <div style="text-align:center;margin-top:12px">
       <button id="btn-done-dua">Я сделал дуа</button>
     </div>
-  </div>
+  </div>  
   <div id="screen-main" class="hidden">
     <div class="stats">
       <div class="stat">Всего: <span id="stat-total">0</span></div>
@@ -44,32 +44,33 @@
     </div>
     <div id="arabic">…</div>
 
-    <div id="learn-controls" class="controls">
-      <button id="btn-know" class="btn-primary">Знаю</button>
-      <button id="btn-dont">Не знаю</button>
-    </div>
+<!-- первая строка: Знаю / Не знаю -->
+<div id="learn-controls" class="controls">
+  <button id="btn-know" class="btn-primary">Знаю</button>
+  <button id="btn-dont">Не знаю</button>
+</div>
 
-    <div class="controls-vertical">
-      <div class="controls">
-        <button id="btn-reset" class="btn-danger">Сбросить прогресс</button>
-        <button id="btn-add">Добавить новые слова</button>
-      </div>
-    </div>
-
-    <div id="practice-area" class="hidden" style="margin-top:12px">
-      <div style="margin-bottom:8px"><strong>Практика — введите перевод на русском:</strong></div>
-      <input id="practice-input" type="text" autocomplete="off" placeholder="Введите перевод" />
-      <div class="controls" style="margin-top:8px">
-        <button id="practice-submit">Проверить</button>
-        <button id="practice-skip">Пропустить</button>
-      </div>
-    </div>
-
-    <div id="message" class="small" style="margin-top:12px"></div>
+<!-- вторая строка: Сброс и Добавить -->
+<div class="controls-vertical">
+  <div class="controls">
+    <button id="btn-reset" class="btn-danger">Сбросить прогресс</button>
+    <button id="btn-add">Добавить новые слова</button>
   </div>
+</div>
 
+<div id="practice-area" class="hidden" style="margin-top:12px">
+  <div style="margin-bottom:8px"><strong>Практика — введите перевод на русском:</strong></div>
+  <input id="practice-input" type="text" autocomplete="off" placeholder="Введите перевод" />
+  <div class="controls" style="margin-top:8px">
+    <button id="practice-submit">Проверить</button>
+    <button id="practice-skip">Пропустить</button>
+  </div>
+</div>
+
+<div id="message" class="small" style="margin-top:12px"></div>
+
+  </div>  
   <div id="modal-root"></div>
-
 <script>
 /* ---------- Настройки ---------- */
 const BATCH_SIZE = 10;
@@ -203,12 +204,10 @@ async function initDictionary(){
     orderQueue = (Array.isArray(st.orderQueue) ? st.orderQueue.filter(r=>serverSet.has(r)) : []);
     const oldSnap = new Set(st.allRaw || []);
     const newOnServer = allWords.map(w=>w.rawLine).filter(r=>!oldSnap.has(r));
-    // IMPORTANT: Do NOT auto-insert newOnServer into orderQueue when user already had saved progress.
-    // That preserves "only add new words via button" behaviour.
-    // However we keep compatibility: if orderQueue is empty we fill from server excluding masteredFinal.
-    for(const r of newOnServer) {
-      // do NOT auto-add here (preserve user's saved queue)
-    }
+    // IMPORTANT: do NOT auto-insert server new words into orderQueue on normal load
+    // unless user performed FULL reset. We only append newOnServer to orderQueue here
+    // so they are available if the saved orderQueue had been empty (edge-case). 
+    for(const r of newOnServer) if(!orderQueue.includes(r)) orderQueue.push(r);
     masteredFinal = (Array.isArray(st.masteredFinal) ? st.masteredFinal.filter(r=>serverSet.has(r)) : []);
     practiceHistory = (Array.isArray(st.practiceHistory) ? st.practiceHistory.filter(r=>serverSet.has(r)) : []);
     roundMastered = (Array.isArray(st.roundMastered) ? st.roundMastered.filter(r=>serverSet.has(r)) : []);
@@ -221,6 +220,7 @@ async function initDictionary(){
       shuffle(orderQueue);
     }
   } else {
+    // fresh init
     allWords = parsed.slice();
     masteredFinal = []; practiceHistory = []; roundMastered = []; practiceAccum = []; practiceOrder = [];
     phase = 'learn'; currentRaw = null;
@@ -235,11 +235,11 @@ async function initDictionary(){
 function updateStats(){
   statTotal.textContent = allWords.length;
   statMastered.textContent = masteredFinal.length;
-  // Показываем только одно число — сколько элементов в основной очереди заучивания
+  // <<--- FIX: показываем только длину основной очереди orderQueue (обычное "в очереди")
   statRemaining.textContent = Array.isArray(orderQueue) ? orderQueue.length : 0;
   statPhase.textContent = phase === 'learn' ? 'Заучивание' : (phase === 'practice' ? 'Практика' : '—');
 }
-
+function showMessage(t){ messageDiv.textContent = t || ''; }
 
 /* ---------- Заучивание ---------- */
 function showNextLearn(){
@@ -266,6 +266,7 @@ function showNextLearn(){
 }
 
 /* ---------- Кнопки заучивания ---------- */
+// старт практики только при ПЕРЕХОДЕ через порог (=== BATCH_SIZE)
 btnKnow.addEventListener('click', () => {
   if(!currentRaw) return;
   if(!roundMastered.includes(currentRaw)) roundMastered.push(currentRaw);
@@ -274,7 +275,6 @@ btnKnow.addEventListener('click', () => {
   saveState();
   updateStats();
 
-  // старт практики ТОЛЬКО при достижении точного порога
   if (roundMastered.length === BATCH_SIZE) {
     startPractice();
   } else {
@@ -305,7 +305,7 @@ function showDontKnowModal(obj){
     const arabAll = ar.join(' - ');
     for(const r of obj.rus.length?obj.rus:['']) html += `<div class="pair">${escapeHtml(r)} — <span style="direction:rtl">${escapeHtml(arabAll)}</span></div>`;
   }
-  modal.innerHTML = `<div><strong>Перевод (показывается ${SHOW_ANSWER_MS/1000} с)</strong></div><div style="margin-top:8px">${html}</div>`;
+  modal.innerHTML = `<div><strong>Перевод (показывается 15 с)</strong></div><div style="margin-top:8px">${html}</div>`;
   overlay.appendChild(modal);
   modalRoot.appendChild(overlay);
   modalTimer = setTimeout(()=>{ closeModal(); showNextLearn(); }, SHOW_ANSWER_MS);
@@ -340,46 +340,37 @@ function showPracticeAnswerModal(obj, title = 'Правильный ответ',
   if(autoClose) modalTimer = setTimeout(()=>{ onBtn(); }, SHOW_ANSWER_MS);
 }
 
-/* ---------- Практика: старт, порядок ----------
-   Изменил: теперь в practiceOrder первые элементы — masteredFinal (до BATCH_SIZE),
-   затем новые слова (из orderQueue). Также мы НЕ удаляем новые слова из orderQueue на старте —
-   слово будет удалено из orderQueue только если пользователь его успешно пометил выученным. */
+/* ---------- Практика: старт, порядок ---------- */
 function startPractice(){
   phase = 'practice';
   learnControls.classList.add('hidden');
   practiceArea.classList.remove('hidden');
 
-  // Берём сначала masteredFinal (входят первыми)
-  const masteredCandidates = masteredFinal.slice(); // копия
-  // Ограничиваем суммарным размером BATCH_SIZE
-  let masteredToUse = masteredCandidates.slice(0, BATCH_SIZE);
-  let remainingSlots = Math.max(0, BATCH_SIZE - masteredToUse.length);
-
-  // Теперь подберём новые слова из orderQueue (те, что в очереди заучивания)
+  // Сформировать practiceOrder: сначала окончательно выученные (masteredFinal),
+  // затем небольшое количество новых слов из orderQueue, всего BATCH_SIZE
+  let mastered = masteredFinal.slice(0, BATCH_SIZE);
+  let remainingSlots = Math.max(0, BATCH_SIZE - mastered.length);
   let newWords = [];
+
   if (remainingSlots > 0 && orderQueue.length > 0) {
-    // исключаем дубликаты: те, что уже попали в practiceOrder или practiceAccum
-    const exclude = new Set([...masteredToUse, ...roundMastered, ...practiceAccum, ...practiceOrder]);
+    const exclude = new Set([...mastered, ...roundMastered, ...practiceAccum, ...practiceOrder]);
     const candidates = orderQueue.filter(r => !exclude.has(r));
     newWords = candidates.slice(0, remainingSlots);
-    shuffle(newWords);
-    // Важно: здесь НЕ удаляем newWords из orderQueue; удаление произойдёт при успешном ответе.
+    if(newWords.length) shuffle(newWords);
   }
 
-  // Формируем practiceOrder: mastered первые, затем новые
-  practiceOrder = masteredToUse.concat(newWords);
+  practiceOrder = mastered.concat(newWords);
 
-  // Очистка roundMastered — старт нового раунда
+  // Сбрасываем накопления для раунда
   roundMastered = [];
   saveState();
   updateStats();
   showNextPractice();
 }
 
-/* ---------- Показать следующее в практике ---------- */
+/* ---------- showNextPractice ---------- */
 function showNextPractice(){
   if(!practiceOrder || practiceOrder.length===0){
-    // практика закончилась — возвращаемся в заучивание
     phase = 'learn';
     learnControls.classList.remove('hidden');
     practiceArea.classList.add('hidden');
@@ -396,7 +387,7 @@ function showNextPractice(){
   updateStats();
 }
 
-/* ---------- Практика: проверка ответа ---------- */
+/* ---------- Практика: проверка (Enter и кнопка) ---------- */
 function enablePracticeControls(){ practiceSubmit.disabled=false; practiceSkip.disabled=false; practiceInput.disabled=false; practiceInput.focus(); }
 function disablePracticeControls(){ practiceSubmit.disabled=true; practiceSkip.disabled=true; practiceInput.disabled=true; }
 
@@ -410,26 +401,21 @@ practiceSubmit.addEventListener('click', async () => {
     const userNorm = normalizeRu(val);
     const exact = (obj.rus||[]).some(r => normalizeRu(r) === userNorm);
     const almost = !exact && (obj.rus||[]).some(r => isLastCharMistake(userNorm, normalizeRu(r)));
-
     if(exact){
-      // Успешно — отмечаем окончательно выученным
+      // пометили окончательно выученным
       if(!masteredFinal.includes(currentRaw)) masteredFinal.push(currentRaw);
       if(!practiceHistory.includes(currentRaw)) practiceHistory.push(currentRaw);
       practiceAccum = practiceAccum.filter(r=>r!==currentRaw);
-      // Если это было новое слово, удаляем из orderQueue
+      // Если это было новое слово — удаляем его из основной очереди
       orderQueue = orderQueue.filter(r=>r!==currentRaw);
-
       showMessage('Верно — отмечено как окончательно выученное.');
       saveState();
       updateStats();
       currentRaw = null;
       enablePracticeControls();
       showNextPractice();
-      return;
-    }
-
-    if(almost){
-      // Частичная ошибка: засчитываем как верно (по вашему требованию)
+    } else if(almost){
+      // частичная ошибка: засчитываем как верно, показываем модал
       if(!masteredFinal.includes(currentRaw)) masteredFinal.push(currentRaw);
       if(!practiceHistory.includes(currentRaw)) practiceHistory.push(currentRaw);
       practiceAccum = practiceAccum.filter(r=>r!==currentRaw);
@@ -439,49 +425,41 @@ practiceSubmit.addEventListener('click', async () => {
       showPracticeAnswerModal(obj, 'Мелкая ошибка — засчитано', true);
       currentRaw = null;
       enablePracticeControls();
-      return;
+    } else {
+      // полная ошибка: вернуть в начало orderQueue и, если было в masteredFinal, удалить оттуда
+      orderQueue = orderQueue.filter(r => r !== currentRaw);
+      orderQueue.unshift(currentRaw);
+      const wasMastered = masteredFinal.includes(currentRaw);
+      if(wasMastered){
+        masteredFinal = masteredFinal.filter(r=>r!==currentRaw);
+        practiceHistory = practiceHistory.filter(r=>r!==currentRaw);
+      }
+      practiceAccum = practiceAccum.filter(r=>r!==currentRaw);
+      saveState();
+      updateStats();
+      showPracticeAnswerModal(obj, 'Неправильно', true);
+      currentRaw = null;
+      enablePracticeControls();
     }
-
-    // Полная ошибка:
-    // — если слово было в masteredFinal, удалить оттуда и поместить в начало orderQueue
-    const wasMastered = masteredFinal.includes(currentRaw);
-    if(wasMastered){
-      masteredFinal = masteredFinal.filter(r=>r!==currentRaw);
-      practiceHistory = practiceHistory.filter(r=>r!==currentRaw);
-    }
-    // — вернуть слово в начало orderQueue (чтобы оно показывалось первым в фазе заучивания)
-    orderQueue = orderQueue.filter(r => r !== currentRaw);
-    orderQueue.unshift(currentRaw);
-
-    // — если это было «новое слово» в практике, оно также возвращается в очередь (также в начало)
-    practiceAccum = practiceAccum.filter(r=>r!==currentRaw);
-    saveState();
-    updateStats();
-
-    showPracticeAnswerModal(obj, 'Неправильно', true);
-    currentRaw = null;
-    enablePracticeControls();
   }catch(e){ console.error(e); enablePracticeControls(); }
 });
 
 practiceInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); practiceSubmit.click(); } });
-
-/* ---------- Кнопка "Пропустить" в практике ---------- */
 practiceSkip.addEventListener('click', ()=>{ 
   if(!currentRaw) return;
 
-  // Если слово было окончательно выученным — удалить из masteredFinal (как если бы ошиблись)
+  // Если слово было в masteredFinal — удалить его из mastered (пользователь "пропустил" — вернуть в очередь)
   const wasMastered = masteredFinal.includes(currentRaw);
   if (wasMastered) {
     masteredFinal = masteredFinal.filter(r => r !== currentRaw);
     practiceHistory = practiceHistory.filter(r => r !== currentRaw);
   }
 
-  // Добавляем слово в начало orderQueue (приоритет при следующем заучивании)
+  // Перемещаем/добавляем в начало orderQueue
   orderQueue = orderQueue.filter(r => r !== currentRaw);
   orderQueue.unshift(currentRaw);
 
-  // Убираем текущее слово из practiceOrder (чтобы не повторялось в текущей практике)
+  // Убираем текущее слово из practiceOrder (на всякий случай)
   practiceOrder = practiceOrder.filter(r => r !== currentRaw);
 
   // Чистим временные накопления
@@ -495,7 +473,7 @@ practiceSkip.addEventListener('click', ()=>{
   showNextPractice();
 });
 
-/* ---------- Добавить новые слова (вставка в случайные позиции) ---------- */
+/* ---------- Добавить новые слова (только по кнопке) ---------- */
 btnAdd.addEventListener('click', async () => {
   try{
     const txt = await robustFetchWords();
@@ -606,6 +584,5 @@ window.addEventListener('visibilitychange', ()=>{ if(document.visibilityState===
 /* ---------- Modal helper ---------- */
 function closeModal(){ modalRoot.innerHTML=''; if(modalTimer){ clearTimeout(modalTimer); modalTimer=null; } }
 
-</script>
-</body>
+</script></body>
 </html>
