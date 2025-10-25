@@ -88,7 +88,6 @@ let practiceHistory = [];
 let roundMastered = [];
 let practiceAccum = [];
 let practiceOrder = [];
-let failedFromMastered = [];
 let phase = 'learn';
 let currentRaw = null;
 let modalTimer = null;
@@ -165,7 +164,6 @@ function saveState(){
       roundMastered: roundMastered.slice(),
       practiceAccum: practiceAccum.slice(),
       practiceOrder: practiceOrder.slice(),
-      failedFromMastered: failedFromMastered.slice(),
       phase, currentRaw
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(st));
@@ -206,13 +204,15 @@ async function initDictionary(){
     orderQueue = (Array.isArray(st.orderQueue) ? st.orderQueue.filter(r=>serverSet.has(r)) : []);
     const oldSnap = new Set(st.allRaw || []);
     const newOnServer = allWords.map(w=>w.rawLine).filter(r=>!oldSnap.has(r));
+    // IMPORTANT: do NOT auto-insert server new words into orderQueue on normal load
+    // unless user performed FULL reset. We only append newOnServer to orderQueue here
+    // so they are available if the saved orderQueue had been empty (edge-case). 
     for(const r of newOnServer) if(!orderQueue.includes(r)) orderQueue.push(r);
     masteredFinal = (Array.isArray(st.masteredFinal) ? st.masteredFinal.filter(r=>serverSet.has(r)) : []);
     practiceHistory = (Array.isArray(st.practiceHistory) ? st.practiceHistory.filter(r=>serverSet.has(r)) : []);
     roundMastered = (Array.isArray(st.roundMastered) ? st.roundMastered.filter(r=>serverSet.has(r)) : []);
     practiceAccum = (Array.isArray(st.practiceAccum) ? st.practiceAccum.filter(r=>serverSet.has(r)) : []);
     practiceOrder = (Array.isArray(st.practiceOrder) ? st.practiceOrder.filter(r=>serverSet.has(r)) : []);
-    failedFromMastered = (Array.isArray(st.failedFromMastered) ? st.failedFromMastered.filter(r=>serverSet.has(r)) : []);
     phase = st.phase || 'learn';
     currentRaw = (st.currentRaw && serverSet.has(st.currentRaw)) ? st.currentRaw : null;
     if(!orderQueue.length){
@@ -220,8 +220,9 @@ async function initDictionary(){
       shuffle(orderQueue);
     }
   } else {
+    // fresh init
     allWords = parsed.slice();
-    masteredFinal = []; practiceHistory = []; roundMastered = []; practiceAccum = []; practiceOrder = []; failedFromMastered = [];
+    masteredFinal = []; practiceHistory = []; roundMastered = []; practiceAccum = []; practiceOrder = [];
     phase = 'learn'; currentRaw = null;
     orderQueue = allWords.map(w=>w.rawLine);
     shuffle(orderQueue);
@@ -234,14 +235,7 @@ async function initDictionary(){
 function updateStats(){
   statTotal.textContent = allWords.length;
   statMastered.textContent = masteredFinal.length;
-  let remaining = orderQueue.length;
-  if (phase === 'learn' && currentRaw && !orderQueue.includes(currentRaw)) {
-    remaining += 1;
-  }
-  if (phase === 'practice' && practiceOrder.length > 0) {
-    remaining = practiceOrder.length + (currentRaw ? 1 : 0);
-  }
-  statRemaining.textContent = remaining;
+  statRemaining.textContent = Array.isArray(orderQueue) ? orderQueue.length : 0;
   statPhase.textContent = phase === 'learn' ? 'Заучивание' : (phase === 'practice' ? 'Практика' : '—');
 }
 function showMessage(t){ messageDiv.textContent = t || ''; }
@@ -251,12 +245,6 @@ function showNextLearn(){
   phase = 'learn';
   learnControls.classList.remove('hidden');
   practiceArea.classList.add('hidden');
-  
-  if (failedFromMastered.length > 0) {
-    orderQueue = [...failedFromMastered, ...orderQueue.filter(r => !failedFromMastered.includes(r))];
-    failedFromMastered = [];
-  }
-  
   updateStats();
   if(orderQueue.length === 0){
     if(roundMastered.length >= BATCH_SIZE){
@@ -277,6 +265,7 @@ function showNextLearn(){
 }
 
 /* ---------- Кнопки заучивания ---------- */
+// старт практики только при ПЕРЕХОДЕ через порог (=== BATCH_SIZE)
 btnKnow.addEventListener('click', () => {
   if(!currentRaw) return;
   if(!roundMastered.includes(currentRaw)) roundMastered.push(currentRaw);
@@ -300,7 +289,6 @@ btnDont.addEventListener('click', () => {
   currentRaw = null;
   saveState();
   updateStats();
-  setTimeout(() => showNextLearn(), 0);
 });
 
 /* ---------- Modal: "Не знаю" ---------- */
@@ -357,19 +345,25 @@ function startPractice(){
   learnControls.classList.add('hidden');
   practiceArea.classList.remove('hidden');
 
+  // Сформировать practiceOrder: сначала окончательно выученные (masteredFinal),
+  // затем небольшое количество новых слов из practiceAccum, всего BATCH_SIZE
   let mastered = masteredFinal.slice(0, BATCH_SIZE);
   let remainingSlots = Math.max(0, BATCH_SIZE - mastered.length);
   let newWords = [];
 
   if (remainingSlots > 0 && practiceAccum.length > 0) {
-    const exclude = new Set([...mastered]);
+    const exclude = new Set([...mastered, ...practiceOrder]);
     const candidates = practiceAccum.filter(r => !exclude.has(r));
     newWords = candidates.slice(0, remainingSlots);
+    if(newWords.length) shuffle(newWords);
   }
 
-  practiceOrder = [...mastered, ...newWords];
-  shuffle(practiceOrder);
+  // Удаляем новые слова из practiceAccum (теперь они в практике; если пропустить — вернутся в orderQueue)
+  practiceAccum = practiceAccum.filter(r => !newWords.includes(r));
 
+  practiceOrder = mastered.concat(newWords);
+
+  // Сбрасываем накопления для раунда
   roundMastered = [];
   saveState();
   updateStats();
@@ -379,11 +373,6 @@ function startPractice(){
 /* ---------- showNextPractice ---------- */
 function showNextPractice(){
   if(!practiceOrder || practiceOrder.length===0){
-    if (practiceAccum.length > 0) {
-      orderQueue = [...practiceAccum, ...orderQueue.filter(r => !practiceAccum.includes(r))];
-      practiceAccum = [];
-    }
-    
     phase = 'learn';
     learnControls.classList.remove('hidden');
     practiceArea.classList.add('hidden');
@@ -397,7 +386,6 @@ function showNextPractice(){
   arabicDiv.textContent = obj.arabFull || (obj.arabParts||[]).join(' - ') || '[нет арабского]';
   practiceInput.value = '';
   practiceInput.focus();
-  saveState();
   updateStats();
 }
 
@@ -415,47 +403,40 @@ practiceSubmit.addEventListener('click', async () => {
     const userNorm = normalizeRu(val);
     const exact = (obj.rus||[]).some(r => normalizeRu(r) === userNorm);
     const almost = !exact && (obj.rus||[]).some(r => isLastCharMistake(userNorm, normalizeRu(r)));
-    
-    const wasMastered = masteredFinal.includes(currentRaw);
-    const wasInPracticeAccum = practiceAccum.includes(currentRaw);
-    
-    if(exact || almost){
-      if(!masteredFinal.includes(currentRaw)) {
-        masteredFinal.push(currentRaw);
-      }
-      if(!practiceHistory.includes(currentRaw)) {
-        practiceHistory.push(currentRaw);
-      }
+    if(exact){
+      // пометили окончательно выученным
+      if(!masteredFinal.includes(currentRaw)) masteredFinal.push(currentRaw);
+      if(!practiceHistory.includes(currentRaw)) practiceHistory.push(currentRaw);
       practiceAccum = practiceAccum.filter(r=>r!==currentRaw);
+      // Если это было новое слово — удаляем его из основной очереди
       orderQueue = orderQueue.filter(r=>r!==currentRaw);
-      
-      const msg = almost ? 'Мелкая ошибка — засчитано' : 'Верно — отмечено как окончательно выученное.';
-      if(almost) {
-        showPracticeAnswerModal(obj, msg, true);
-      } else {
-        showMessage(msg);
-      }
-      
+      showMessage('Верно — отмечено как окончательно выученное.');
       saveState();
       updateStats();
       currentRaw = null;
       enablePracticeControls();
-      
-      if(!almost) {
-        showNextPractice();
-      }
+      showNextPractice();
+    } else if(almost){
+      // частичная ошибка: засчитываем как верно, показываем модал
+      if(!masteredFinal.includes(currentRaw)) masteredFinal.push(currentRaw);
+      if(!practiceHistory.includes(currentRaw)) practiceHistory.push(currentRaw);
+      practiceAccum = practiceAccum.filter(r=>r!==currentRaw);
+      orderQueue = orderQueue.filter(r=>r!==currentRaw);
+      saveState();
+      updateStats();
+      showPracticeAnswerModal(obj, 'Мелкая ошибка — засчитано', true);
+      currentRaw = null;
+      enablePracticeControls();
     } else {
+      // полная ошибка: вернуть в начало orderQueue и, если было в masteredFinal, удалить оттуда
+      orderQueue = orderQueue.filter(r => r !== currentRaw);
+      orderQueue.unshift(currentRaw);
+      const wasMastered = masteredFinal.includes(currentRaw);
       if(wasMastered){
         masteredFinal = masteredFinal.filter(r=>r!==currentRaw);
         practiceHistory = practiceHistory.filter(r=>r!==currentRaw);
-        if(!failedFromMastered.includes(currentRaw)) {
-          failedFromMastered.push(currentRaw);
-        }
-      } else if(wasInPracticeAccum) {
       }
-      
-      orderQueue = orderQueue.filter(r => r !== currentRaw);
-      
+      practiceAccum = practiceAccum.filter(r=>r!==currentRaw);
       saveState();
       updateStats();
       showPracticeAnswerModal(obj, 'Неправильно', true);
@@ -466,29 +447,31 @@ practiceSubmit.addEventListener('click', async () => {
 });
 
 practiceInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); practiceSubmit.click(); } });
-
 practiceSkip.addEventListener('click', ()=>{ 
   if(!currentRaw) return;
 
+  // Если слово было в masteredFinal — удалить его из mastered (пользователь "пропустил" — вернуть в очередь)
   const wasMastered = masteredFinal.includes(currentRaw);
-  const wasInPracticeAccum = practiceAccum.includes(currentRaw);
-  
   if (wasMastered) {
     masteredFinal = masteredFinal.filter(r => r !== currentRaw);
     practiceHistory = practiceHistory.filter(r => r !== currentRaw);
-    if(!failedFromMastered.includes(currentRaw)) {
-      failedFromMastered.push(currentRaw);
-    }
-  } else if (wasInPracticeAccum) {
   }
 
+  // Перемещаем/добавляем в начало orderQueue
   orderQueue = orderQueue.filter(r => r !== currentRaw);
+  orderQueue.unshift(currentRaw);
+
+  // Убираем текущее слово из practiceOrder (на всякий случай)
   practiceOrder = practiceOrder.filter(r => r !== currentRaw);
+
+  // Чистим временные накопления
+  practiceAccum = practiceAccum.filter(r=>r!==currentRaw);
 
   saveState();
   updateStats();
 
   currentRaw = null;
+  // Переходим к следующему слову в практике
   showNextPractice();
 });
 
@@ -545,9 +528,10 @@ function showResetModal() {
   function onCancel() { cleanup(); }
   function onConfirm() {
     cleanup();
+    // Выполнить сброс
     clearState();
     orderQueue = allWords.map(w=>w.rawLine); shuffle(orderQueue);
-    masteredFinal = []; practiceHistory = []; roundMastered = []; practiceAccum = []; practiceOrder = []; failedFromMastered = []; phase='learn'; currentRaw=null;
+    masteredFinal = []; practiceHistory = []; roundMastered = []; practiceAccum = []; practiceOrder = []; phase='learn'; currentRaw=null;
     screenMain.classList.add('hidden'); screenDua.classList.remove('hidden');
     updateStats();
     showMessage('Прогресс сброшен.');
@@ -558,6 +542,8 @@ function showResetModal() {
   document.getElementById('modal-cancel').addEventListener('click', onCancel);
   document.getElementById('modal-confirm').addEventListener('click', onConfirm);
 }
+
+btnReset.addEventListener('click', showResetModal);
 
 /* ---------- "Я сделал дуа" ---------- */
 btnDoneDua.addEventListener('click', async ()=>{
@@ -600,6 +586,5 @@ window.addEventListener('visibilitychange', ()=>{ if(document.visibilityState===
 /* ---------- Modal helper ---------- */
 function closeModal(){ modalRoot.innerHTML=''; if(modalTimer){ clearTimeout(modalTimer); modalTimer=null; } }
 
-</script>
-</body>
+</script></body>
 </html>
