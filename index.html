@@ -354,23 +354,19 @@ function startPractice(){
   learnControls.classList.add('hidden');
   practiceArea.classList.remove('hidden');
 
-  // Сформировать practiceOrder: сначала окончательно выученные (masteredFinal),
-  // затем небольшое количество новых слов из practiceAccum, всего BATCH_SIZE
-  let mastered = masteredFinal.slice(0, BATCH_SIZE);
-  let remainingSlots = Math.max(0, BATCH_SIZE - mastered.length);
-  let newWords = [];
-
-  if (remainingSlots > 0 && practiceAccum.length > 0) {
-    const exclude = new Set([...mastered, ...practiceOrder]);
-    const candidates = practiceAccum.filter(r => !exclude.has(r));
-    newWords = candidates.slice(0, remainingSlots);
-    if(newWords.length) shuffle(newWords);
-  }
-
-  // Удаляем новые слова из practiceAccum (теперь они в практике; если пропустить — вернутся в orderQueue)
+  // ИСПРАВЛЕНИЕ: Формируем practiceOrder правильно
+  // 1. Сначала ВСЕ слова из masteredFinal (для повторения)
+  let practiceWords = masteredFinal.slice();
+  
+  // 2. Добавляем новые слова из practiceAccum (до BATCH_SIZE новых)
+  let newWords = practiceAccum.slice(0, BATCH_SIZE);
+  
+  // 3. Объединяем и перемешиваем
+  practiceOrder = practiceWords.concat(newWords);
+  shuffle(practiceOrder);
+  
+  // 4. Удаляем новые слова из practiceAccum (они теперь в практике)
   practiceAccum = practiceAccum.filter(r => !newWords.includes(r));
-
-  practiceOrder = mastered.concat(newWords);
 
   // Сбрасываем накопления для раунда
   roundMastered = [];
@@ -382,6 +378,14 @@ function startPractice(){
 /* ---------- showNextPractice ---------- */
 function showNextPractice(){
   if(!practiceOrder || practiceOrder.length === 0) {
+    // ИСПРАВЛЕНИЕ: Возвращаем неосвоенные слова в orderQueue
+    if(roundMastered.length > 0) {
+      // Слова, которые были освоены в этом раунде, остаются в masteredFinal
+      // Слова, которые НЕ были освоены, возвращаем в orderQueue
+      const notMastered = practiceOrder.filter(word => !roundMastered.includes(word));
+      orderQueue = orderQueue.concat(notMastered);
+    }
+    
     phase = 'learn';
     learnControls.classList.remove('hidden');
     practiceArea.classList.add('hidden');
@@ -414,12 +418,15 @@ practiceSubmit.addEventListener('click', async () => {
     const exact = (obj.rus||[]).some(r => normalizeRu(r) === userNorm);
     const almost = !exact && (obj.rus||[]).some(r => isLastCharMistake(userNorm, normalizeRu(r)));
     if(exact){
-      // пометили окончательно выученным
+      // ИСПРАВЛЕНИЕ: Правильный ответ - добавляем в roundMastered
+      if(!roundMastered.includes(currentRaw)) roundMastered.push(currentRaw);
       if(!masteredFinal.includes(currentRaw)) masteredFinal.push(currentRaw);
       if(!practiceHistory.includes(currentRaw)) practiceHistory.push(currentRaw);
+      
+      // Убираем из practiceAccum если там есть
       practiceAccum = practiceAccum.filter(r=>r!==currentRaw);
-      // Если это было новое слово — удаляем его из основной очереди
       orderQueue = orderQueue.filter(r=>r!==currentRaw);
+      
       showMessage('Верно — отмечено как окончательно выученное.');
       saveState();
       updateStats();
@@ -427,26 +434,33 @@ practiceSubmit.addEventListener('click', async () => {
       enablePracticeControls();
       showNextPractice();
     } else if(almost){
-      // частичная ошибка: засчитываем как верно, показываем модал
+      // ИСПРАВЛЕНИЕ: Мелкая ошибка - тоже засчитываем
+      if(!roundMastered.includes(currentRaw)) roundMastered.push(currentRaw);
       if(!masteredFinal.includes(currentRaw)) masteredFinal.push(currentRaw);
       if(!practiceHistory.includes(currentRaw)) practiceHistory.push(currentRaw);
+      
       practiceAccum = practiceAccum.filter(r=>r!==currentRaw);
       orderQueue = orderQueue.filter(r=>r!==currentRaw);
+      
       saveState();
       updateStats();
       showPracticeAnswerModal(obj, 'Мелкая ошибка — засчитано', true);
       currentRaw = null;
       enablePracticeControls();
     } else {
-      // полная ошибка: вернуть в начало orderQueue и, если было в masteredFinal, удалить оттуда
-      orderQueue = orderQueue.filter(r => r !== currentRaw);
-      orderQueue.unshift(currentRaw);
-      const wasMastered = masteredFinal.includes(currentRaw);
-      if(wasMastered){
+      // ИСПРАВЛЕНИЕ: Неправильный ответ - НЕ теряем слово!
+      // Если это было из masteredFinal - убираем оттуда и возвращаем в orderQueue
+      if(masteredFinal.includes(currentRaw)) {
         masteredFinal = masteredFinal.filter(r=>r!==currentRaw);
         practiceHistory = practiceHistory.filter(r=>r!==currentRaw);
+        orderQueue.push(currentRaw); // Возвращаем в очередь для повторного изучения
       }
-      practiceAccum = practiceAccum.filter(r=>r!==currentRaw);
+      // Если это было новое слово - тоже возвращаем в orderQueue
+      else if(practiceAccum.includes(currentRaw)) {
+        practiceAccum = practiceAccum.filter(r=>r!==currentRaw);
+        orderQueue.push(currentRaw);
+      }
+      
       saveState();
       updateStats();
       showPracticeAnswerModal(obj, 'Неправильно', true);
@@ -460,28 +474,22 @@ practiceInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventD
 practiceSkip.addEventListener('click', ()=>{ 
   if(!currentRaw) return;
 
-  // Если слово было в masteredFinal — удалить его из mastered (пользователь "пропустил" — вернуть в очередь)
-  const wasMastered = masteredFinal.includes(currentRaw);
-  if (wasMastered) {
+  // ИСПРАВЛЕНИЕ: Пропуск - возвращаем слово в orderQueue
+  if(masteredFinal.includes(currentRaw)) {
     masteredFinal = masteredFinal.filter(r => r !== currentRaw);
     practiceHistory = practiceHistory.filter(r => r !== currentRaw);
   }
-
-  // Перемещаем/добавляем в начало orderQueue
-  orderQueue = orderQueue.filter(r => r !== currentRaw);
-  orderQueue.unshift(currentRaw);
-
-  // Убираем текущее слово из practiceOrder (на всякий случай)
-  practiceOrder = practiceOrder.filter(r => r !== currentRaw);
-
-  // Чистим временные накопления
+  
+  // Возвращаем в orderQueue
+  orderQueue.push(currentRaw);
+  
+  // Убираем из practiceAccum если там есть
   practiceAccum = practiceAccum.filter(r=>r!==currentRaw);
 
   saveState();
   updateStats();
 
   currentRaw = null;
-  // Переходим к следующему слову в практике
   showNextPractice();
 });
 
