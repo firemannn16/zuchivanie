@@ -266,7 +266,7 @@ function showNextLearn(){
 btnKnow.addEventListener('click', () => {
   if(!currentRaw) return;
   
-  // Удаляем слово из очереди и добавляем в накопление
+  // ИСПРАВЛЕНИЕ: Удаляем слово из очереди и добавляем в накопление
   orderQueue.shift();
   if(!roundMastered.includes(currentRaw)) roundMastered.push(currentRaw);
   if(!practiceAccum.includes(currentRaw)) practiceAccum.push(currentRaw);
@@ -286,7 +286,7 @@ btnKnow.addEventListener('click', () => {
 btnDont.addEventListener('click', () => {
   if(!currentRaw) return;
   
-  // Удаляем слово из очереди и добавляем в накопление
+  // ИСПРАВЛЕНИЕ: Удаляем слово из очереди и добавляем в накопление
   orderQueue.shift();
   if(!practiceAccum.includes(currentRaw)) practiceAccum.push(currentRaw);
   
