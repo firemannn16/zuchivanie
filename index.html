@@ -372,7 +372,7 @@ function startPractice(){
 
 /* ---------- showNextPractice ---------- */
 function showNextPractice(){
-  if(!practiceOrder {
+  if(!practiceOrder || practiceOrder.length === 0) {
     phase = 'learn';
     learnControls.classList.remove('hidden');
     practiceArea.classList.add('hidden');
