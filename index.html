@@ -244,7 +244,7 @@ function showNextLearn(){
   practiceArea.classList.add('hidden');
   updateStats();
   if(orderQueue.length === 0){
-    if(roundMastered.length >= BATCH_SIZE){
+    if(practiceAccum.length >= BATCH_SIZE){
       startPractice();
       return;
     }
@@ -266,7 +266,7 @@ function showNextLearn(){
 btnKnow.addEventListener('click', () => {
   if(!currentRaw) return;
   
-  // ИСПРАВЛЕНИЕ: Удаляем слово из очереди и добавляем в накопление
+  // Удаляем слово из очереди и добавляем в накопление
   orderQueue.shift();
   if(!roundMastered.includes(currentRaw)) roundMastered.push(currentRaw);
   if(!practiceAccum.includes(currentRaw)) practiceAccum.push(currentRaw);
@@ -275,8 +275,8 @@ btnKnow.addEventListener('click', () => {
   saveState();
   updateStats();
 
-  // Проверяем, накопилось ли 10 слов
-  if (roundMastered.length >= BATCH_SIZE) {
+  // ИСПРАВЛЕНИЕ: Проверяем, накопилось ли 10 слов в practiceAccum
+  if (practiceAccum.length >= BATCH_SIZE) {
     startPractice();
   } else {
     showNextLearn();
@@ -286,7 +286,7 @@ btnKnow.addEventListener('click', () => {
 btnDont.addEventListener('click', () => {
   if(!currentRaw) return;
   
-  // ИСПРАВЛЕНИЕ: Удаляем слово из очереди и добавляем в накопление
+  // Удаляем слово из очереди и добавляем в накопление
   orderQueue.shift();
   if(!practiceAccum.includes(currentRaw)) practiceAccum.push(currentRaw);
   
@@ -417,7 +417,7 @@ practiceSubmit.addEventListener('click', async () => {
     if(!val){ enablePracticeControls(); return; }
     const obj = allWords.find(w=>w.rawLine===currentRaw) || parseLine(currentRaw);
     const userNorm = normalizeRu(val);
-    const exact = (obj.rus||[]).some(r => normalizeRu(r) === userNorm);
+    const exact = (obj.rus||[]).some(r => normalizeRu(r)) === userNorm);
     const almost = !exact && (obj.rus||[]).some(r => isLastCharMistake(userNorm, normalizeRu(r)));
     if(exact){
       // Правильный ответ - добавляем в roundMastered
