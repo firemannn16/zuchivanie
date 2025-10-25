@@ -372,7 +372,7 @@ function startPractice(){
 
 /* ---------- showNextPractice ---------- */
 function showNextPractice(){
-  if(!practiceOrder || practiceOrder.length===0){
+  if(!practiceOrder {
     phase = 'learn';
     learnControls.classList.remove('hidden');
     practiceArea.classList.add('hidden');
@@ -387,7 +387,7 @@ function showNextPractice(){
   practiceInput.value = '';
   practiceInput.focus();
   updateStats();
-  saveState();
+  
 }
 
 /* ---------- Практика: проверка (Enter и кнопка) ---------- */
