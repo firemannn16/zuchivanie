@@ -545,27 +545,27 @@ practiceSkip.addEventListener('click', ()=>{
   showNextPractice();
 });
 
-/* ---------- ИЗМЕНЕННАЯ ФУНКЦИЯ: Добавить новые слова (только по кнопке) ---------- */
+/* ---------- ИСПРАВЛЕННАЯ ФУНКЦИЯ: Добавить новые слова (только по кнопке) ---------- */
 btnAdd.addEventListener('click', async () => {
   try{
     const txt = await robustFetchWords();
     const lines = txt.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
-    const parsed = lines.map(parseLine);
+    const serverWords = lines.map(parseLine);
     
-    // Создаем мапу существующих слов по содержимому
-    const existingByContent = new Map();
+    // Создаем мапу существующих слов по rawLine для быстрого поиска
+    const existingByRawLine = new Set();
     allWords.forEach(w => {
-      existingByContent.set(getWordContentHash(w), w);
+      existingByRawLine.add(w.rawLine);
     });
     
     let added = 0;
-    for(const newWord of parsed){
-      const contentHash = getWordContentHash(newWord);
-      if(!existingByContent.has(contentHash)){
+    for(const newWord of serverWords){
+      // Проверяем по rawLine - если такого rawLine нет в allWords, то это новое слово
+      if(!existingByRawLine.has(newWord.rawLine)){
         // Это действительно новое слово
         allWords.push(newWord);
         orderQueue.push(newWord.rawLine);
-        existingByContent.set(contentHash, newWord);
+        existingByRawLine.add(newWord.rawLine);
         added++;
       }
     }
