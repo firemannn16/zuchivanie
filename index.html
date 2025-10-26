@@ -417,7 +417,7 @@ practiceSubmit.addEventListener('click', async () => {
     if(!val){ enablePracticeControls(); return; }
     const obj = allWords.find(w=>w.rawLine===currentRaw) || parseLine(currentRaw);
     const userNorm = normalizeRu(val);
-    const exact = (obj.rus||[]).some(r => normalizeRu(r)) === userNorm);
+    const exact = (obj.rus||[]).some(r => normalizeRu(r) === userNorm);
     const almost = !exact && (obj.rus||[]).some(r => isLastCharMistake(userNorm, normalizeRu(r)));
     if(exact){
       // Правильный ответ - добавляем в roundMastered
