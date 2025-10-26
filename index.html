@@ -210,29 +210,36 @@ async function robustFetchWords(){
 async function initDictionary(){
   const txt = await robustFetchWords();
   const lines = txt.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
-  const parsed = lines.map(parseLine);
+  const serverWords = lines.map(parseLine);
   const st = loadState();
   
   if(st && Array.isArray(st.allRaw) && st.allRaw.length){
-    // Загружаем новые слова с сервера
-    allWords = parsed.slice();
-    
-    // Создаем мапы для быстрого поиска
-    const serverWordsByContent = new Map();
-    const serverWordsByRaw = new Map();
-    allWords.forEach(w => {
-      serverWordsByContent.set(getWordContentHash(w), w);
-      serverWordsByRaw.set(w.rawLine, w);
-    });
-    
-    // Обрабатываем сохраненные слова
-    const oldWords = st.allRaw.map(raw => {
+    // НЕ обновляем allWords с сервера автоматически!
+    // Оставляем существующий allWords как есть
+    allWords = st.allRaw.map(raw => {
       const parsed = parseLine(raw);
       return { rawLine: raw, ...parsed };
     });
     
-    // 1. Удаленные слова - убираем из всех списков
-    const serverRawSet = new Set(allWords.map(w => w.rawLine));
+    // Создаем мапы для быстрого поиска существующих слов
+    const existingWordsByRaw = new Map();
+    allWords.forEach(w => {
+      existingWordsByRaw.set(w.rawLine, w);
+    });
+    
+    // Создаем мапу серверных слов для поиска изменений
+    const serverWordsByRaw = new Map();
+    serverWords.forEach(w => {
+      serverWordsByRaw.set(w.rawLine, w);
+    });
+    
+    // 1. Удаленные слова - убираем из всех списков И из allWords
+    const serverRawSet = new Set(serverWords.map(w => w.rawLine));
+    
+    // Убираем удалённые слова из allWords
+    allWords = allWords.filter(w => serverRawSet.has(w.rawLine));
+    
+    // Убираем удалённые слова из всех остальных списков
     orderQueue = (Array.isArray(st.orderQueue) ? st.orderQueue.filter(r => serverRawSet.has(r)) : []);
     masteredFinal = (Array.isArray(st.masteredFinal) ? st.masteredFinal.filter(r => serverRawSet.has(r)) : []);
     practiceHistory = (Array.isArray(st.practiceHistory) ? st.practiceHistory.filter(r => serverRawSet.has(r)) : []);
@@ -240,14 +247,16 @@ async function initDictionary(){
     practiceAccum = (Array.isArray(st.practiceAccum) ? st.practiceAccum.filter(r => serverRawSet.has(r)) : []);
     practiceOrder = (Array.isArray(st.practiceOrder) ? st.practiceOrder.filter(r => serverRawSet.has(r)) : []);
     
-    // 2. Измененные слова - перемещаем в очередь изучения
+    // 2. Измененные слова - обновляем в allWords и перемещаем в очередь изучения
     const changedWords = [];
-    oldWords.forEach(oldWord => {
-      if (serverRawSet.has(oldWord.rawLine)) {
+    allWords.forEach((existingWord, index) => {
+      if (serverRawSet.has(existingWord.rawLine)) {
         // Слово есть на сервере, проверяем изменилось ли содержимое
-        const serverWord = serverWordsByRaw.get(oldWord.rawLine);
-        if (getWordContentHash(oldWord) !== getWordContentHash(serverWord)) {
-          // Содержимое изменилось - добавляем в очередь
+        const serverWord = serverWordsByRaw.get(existingWord.rawLine);
+        if (getWordContentHash(existingWord) !== getWordContentHash(serverWord)) {
+          // Содержимое изменилось - обновляем в allWords
+          const updatedWord = { rawLine: serverWord.rawLine, ...serverWord };
+          allWords[index] = updatedWord;
           changedWords.push(serverWord.rawLine);
         }
       }
@@ -271,14 +280,9 @@ async function initDictionary(){
     phase = st.phase || 'learn';
     currentRaw = (st.currentRaw && serverRawSet.has(st.currentRaw)) ? st.currentRaw : null;
     
-    // ИСПРАВЛЕНИЕ: НЕ добавляем новые слова автоматически, даже если очередь пуста
-    // if(!orderQueue.length){
-    //   orderQueue = allWords.map(w=>w.rawLine).filter(r=>!masteredFinal.includes(r));
-    //   shuffle(orderQueue);
-    // }
   } else {
     // fresh init - только при первом запуске добавляем все слова
-    allWords = parsed.slice();
+    allWords = serverWords.slice();
     masteredFinal = []; practiceHistory = []; roundMastered = []; practiceAccum = []; practiceOrder = [];
     phase = 'learn'; currentRaw = null;
     orderQueue = allWords.map(w=>w.rawLine);
