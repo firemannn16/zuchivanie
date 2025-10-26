@@ -135,6 +135,20 @@ function parseLine(raw){
 function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } }
 function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"})[c]); }
 
+/* ---------- НОВАЯ ФУНКЦИЯ: Сравнение слов по содержимому ---------- */
+function getWordContentHash(wordObj) {
+  // Создаем уникальный хеш на основе содержимого (арабский + русский)
+  const arabContent = (wordObj.arabParts || []).join('|');
+  const rusContent = (wordObj.rus || []).join('|');
+  return `${arabContent}|||${rusContent}`;
+}
+
+function findWordByContent(allWords, targetWord) {
+  // Ищем слово по содержимому, а не по rawLine
+  const targetHash = getWordContentHash(targetWord);
+  return allWords.find(w => getWordContentHash(w) === targetHash);
+}
+
 /* ---------- last-letter mistake detector ---------- */
 function isLastCharMistake(userRaw, correctRaw){
   const u = normalizeRu(userRaw||'');
@@ -192,26 +206,71 @@ async function robustFetchWords(){
   throw new Error('Не удалось загрузить words.txt');
 }
 
-/* ---------- Инициализация словаря ---------- */
+/* ---------- ИЗМЕНЕННАЯ ФУНКЦИЯ: Инициализация словаря ---------- */
 async function initDictionary(){
   const txt = await robustFetchWords();
   const lines = txt.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
   const parsed = lines.map(parseLine);
   const st = loadState();
+  
   if(st && Array.isArray(st.allRaw) && st.allRaw.length){
+    // Загружаем новые слова с сервера
     allWords = parsed.slice();
-    const serverSet = new Set(allWords.map(w=>w.rawLine));
-    orderQueue = (Array.isArray(st.orderQueue) ? st.orderQueue.filter(r=>serverSet.has(r)) : []);
-    const oldSnap = new Set(st.allRaw || []);
-    const newOnServer = allWords.map(w=>w.rawLine).filter(r=>!oldSnap.has(r));
-    for(const r of newOnServer) if(!orderQueue.includes(r)) orderQueue.push(r);
-    masteredFinal = (Array.isArray(st.masteredFinal) ? st.masteredFinal.filter(r=>serverSet.has(r)) : []);
-    practiceHistory = (Array.isArray(st.practiceHistory) ? st.practiceHistory.filter(r=>serverSet.has(r)) : []);
-    roundMastered = (Array.isArray(st.roundMastered) ? st.roundMastered.filter(r=>serverSet.has(r)) : []);
-    practiceAccum = (Array.isArray(st.practiceAccum) ? st.practiceAccum.filter(r=>serverSet.has(r)) : []);
-    practiceOrder = (Array.isArray(st.practiceOrder) ? st.practiceOrder.filter(r=>serverSet.has(r)) : []);
+    
+    // Создаем мапы для быстрого поиска
+    const serverWordsByContent = new Map();
+    const serverWordsByRaw = new Map();
+    allWords.forEach(w => {
+      serverWordsByContent.set(getWordContentHash(w), w);
+      serverWordsByRaw.set(w.rawLine, w);
+    });
+    
+    // Обрабатываем сохраненные слова
+    const oldWords = st.allRaw.map(raw => {
+      const parsed = parseLine(raw);
+      return { rawLine: raw, ...parsed };
+    });
+    
+    // 1. Удаленные слова - убираем из всех списков
+    const serverRawSet = new Set(allWords.map(w => w.rawLine));
+    orderQueue = (Array.isArray(st.orderQueue) ? st.orderQueue.filter(r => serverRawSet.has(r)) : []);
+    masteredFinal = (Array.isArray(st.masteredFinal) ? st.masteredFinal.filter(r => serverRawSet.has(r)) : []);
+    practiceHistory = (Array.isArray(st.practiceHistory) ? st.practiceHistory.filter(r => serverRawSet.has(r)) : []);
+    roundMastered = (Array.isArray(st.roundMastered) ? st.roundMastered.filter(r => serverRawSet.has(r)) : []);
+    practiceAccum = (Array.isArray(st.practiceAccum) ? st.practiceAccum.filter(r => serverRawSet.has(r)) : []);
+    practiceOrder = (Array.isArray(st.practiceOrder) ? st.practiceOrder.filter(r => serverRawSet.has(r)) : []);
+    
+    // 2. Измененные слова - перемещаем в очередь изучения
+    const changedWords = [];
+    oldWords.forEach(oldWord => {
+      if (serverRawSet.has(oldWord.rawLine)) {
+        // Слово есть на сервере, проверяем изменилось ли содержимое
+        const serverWord = serverWordsByRaw.get(oldWord.rawLine);
+        if (getWordContentHash(oldWord) !== getWordContentHash(serverWord)) {
+          // Содержимое изменилось - добавляем в очередь
+          changedWords.push(serverWord.rawLine);
+        }
+      }
+    });
+    
+    // Убираем измененные слова из выученных и добавляем в очередь
+    changedWords.forEach(rawLine => {
+      masteredFinal = masteredFinal.filter(r => r !== rawLine);
+      practiceHistory = practiceHistory.filter(r => r !== rawLine);
+      roundMastered = roundMastered.filter(r => r !== rawLine);
+      practiceAccum = practiceAccum.filter(r => r !== rawLine);
+      practiceOrder = practiceOrder.filter(r => r !== rawLine);
+      
+      if (!orderQueue.includes(rawLine)) {
+        orderQueue.push(rawLine);
+      }
+    });
+    
+    // 3. НОВЫЕ СЛОВА НЕ ДОБАВЛЯЕМ АВТОМАТИЧЕСКИ - только по кнопке
+    
     phase = st.phase || 'learn';
-    currentRaw = (st.currentRaw && serverSet.has(st.currentRaw)) ? st.currentRaw : null;
+    currentRaw = (st.currentRaw && serverRawSet.has(st.currentRaw)) ? st.currentRaw : null;
+    
     if(!orderQueue.length){
       orderQueue = allWords.map(w=>w.rawLine).filter(r=>!masteredFinal.includes(r));
       shuffle(orderQueue);
@@ -481,26 +540,39 @@ practiceSkip.addEventListener('click', ()=>{
   showNextPractice();
 });
 
-/* ---------- Добавить новые слова (только по кнопке) ---------- */
+/* ---------- ИЗМЕНЕННАЯ ФУНКЦИЯ: Добавить новые слова (только по кнопке) ---------- */
 btnAdd.addEventListener('click', async () => {
   try{
     const txt = await robustFetchWords();
     const lines = txt.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
-    const existing = new Set(allWords.map(w=>w.rawLine));
-    let added=0;
-    for(const l of lines){
-      const n = normalizeLine(l);
-      if(!existing.has(n)){
-        const obj = parseLine(n);
-        allWords.push(obj);
-        orderQueue.push(obj.rawLine);
-        existing.add(n);
+    const parsed = lines.map(parseLine);
+    
+    // Создаем мапу существующих слов по содержимому
+    const existingByContent = new Map();
+    allWords.forEach(w => {
+      existingByContent.set(getWordContentHash(w), w);
+    });
+    
+    let added = 0;
+    for(const newWord of parsed){
+      const contentHash = getWordContentHash(newWord);
+      if(!existingByContent.has(contentHash)){
+        // Это действительно новое слово
+        allWords.push(newWord);
+        orderQueue.push(newWord.rawLine);
+        existingByContent.set(contentHash, newWord);
         added++;
       }
     }
-    if(added) shuffle(orderQueue);
-    saveState(); updateStats();
-    alert('Добавлено новых слов: ' + added);
+    
+    if(added) {
+      shuffle(orderQueue);
+      saveState(); 
+      updateStats();
+      alert('Добавлено новых слов: ' + added);
+    } else {
+      alert('Новых слов не найдено');
+    }
   }catch(e){ alert('Ошибка: '+e.message); }
 });
 
