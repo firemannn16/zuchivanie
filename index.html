@@ -380,7 +380,14 @@ function showDontKnowModal(obj){
   modal.innerHTML = `<div><strong>Перевод (показывается 15 с)</strong></div><div style="margin-top:8px">${html}</div>`;
   overlay.appendChild(modal);
   modalRoot.appendChild(overlay);
-  modalTimer = setTimeout(()=>{ closeModal(); showNextLearn(); }, SHOW_ANSWER_MS);
+  modalTimer = setTimeout(()=>{ 
+    closeModal(); 
+    if(practiceAccum.length >= BATCH_SIZE){
+      startPractice();
+    } else {
+      showNextLearn();
+    }
+  }, SHOW_ANSWER_MS);
 }
 
 /* ---------- Modal: практика — при ошибке (и для почти-верно) ---------- */
